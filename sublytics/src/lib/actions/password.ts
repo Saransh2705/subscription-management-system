@@ -62,10 +62,13 @@ export async function updatePassword(password: string) {
       return { error: 'Failed to update password' };
     }
 
-    // Mark password change as complete
+    // Mark password change as complete and email as verified
     const { error: profileError } = await supabase
       .from('user_profiles')
-      .update({ requires_password_change: false })
+      .update({ 
+        requires_password_change: false,
+        email_verified: true 
+      })
       .eq('id', user.id);
 
     if (profileError) {

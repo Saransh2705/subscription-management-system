@@ -4,11 +4,21 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { sendMagicLinkEmail } from '@/lib/email/resend';
+import { checkIPBlocked, trackAttempt, getClientIP } from '@/lib/actions/rate-limit';
 
 export async function signInWithPassword(email: string, password: string) {
   try {
     if (!email || !password) {
       return { error: 'Email and password are required' };
+    }
+
+    // Check if IP is blocked
+    const clientIP = await getClientIP();
+    const isBlocked = await checkIPBlocked(clientIP);
+    
+    if (isBlocked) {
+      await trackAttempt({ email, attemptType: 'login', success: false });
+      return { error: 'Too many failed attempts. Your IP has been temporarily blocked. Please try again later.' };
     }
 
     const supabase = await createClient();
@@ -22,10 +32,12 @@ export async function signInWithPassword(email: string, password: string) {
       .single();
 
     if (!profile) {
+      await trackAttempt({ email, attemptType: 'login', success: false });
       return { error: 'Invalid email or password' };
     }
 
     if (!profile.is_active) {
+      await trackAttempt({ email, userId: profile.id, attemptType: 'login', success: false });
       return { error: 'Account is disabled. Please contact support.' };
     }
 
@@ -37,8 +49,12 @@ export async function signInWithPassword(email: string, password: string) {
 
     if (error) {
       console.error('Sign in error:', error);
+      await trackAttempt({ email, userId: profile.id, attemptType: 'login', success: false });
       return { error: 'Invalid email or password' };
     }
+
+    // Track successful login
+    await trackAttempt({ email, userId: profile.id, attemptType: 'login', success: true });
 
     return { success: true };
   } catch (error) {

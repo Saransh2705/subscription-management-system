@@ -9,6 +9,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { sendPasswordResetEmail } from "@/lib/actions/password";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AuthBackground, AuthBranding } from "@/components/AuthBackground";
 import { Mail, ArrowLeft, CheckCircle2, Loader2, KeyRound } from "lucide-react";
 
 export default function ForgotPasswordPage() {
@@ -38,24 +39,15 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4 relative">
-        <div className="absolute top-4 right-4">
+      <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
+        <AuthBackground />
+        <div className="absolute top-4 right-4 z-20">
           <ThemeToggle />
         </div>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-        </div>
         <div className="w-full max-w-[400px] relative z-10">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4">
-              <span className="text-primary-foreground font-bold text-2xl">S</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">Sublytics</h1>
-            <p className="text-muted-foreground text-sm mt-1">Subscription management, simplified</p>
-          </div>
+          <AuthBranding />
 
-          <Card className="border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 backdrop-blur-sm">
+          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-2 inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30">
                 <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -89,24 +81,15 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4 relative">
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
+      <AuthBackground />
+      <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-      </div>
       <div className="w-full max-w-[400px] relative z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4">
-            <span className="text-primary-foreground font-bold text-2xl">S</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Sublytics</h1>
-          <p className="text-muted-foreground text-sm mt-1">Subscription management, simplified</p>
-        </div>
+        <AuthBranding />
 
-        <Card className="border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 backdrop-blur-sm">
+        <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-2 inline-flex items-center justify-center w-11 h-11 rounded-full bg-primary/10">
               <KeyRound className="h-5 w-5 text-primary" />
@@ -148,23 +131,6 @@ export default function ForgotPasswordPage() {
                 Back to login
               </Link>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-              </div>
-              <Button type="submit" className="w-full font-medium" disabled={loading}>
-                {loading ? "Sending..." : "Send Reset Link"}
-              </Button>
-              <div className="text-center">
-                <Link href="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1">
-                  <ArrowLeft className="h-3 w-3" />
-                  Back to login
-                </Link>
-              </div>
-            </form>
           </CardContent>
         </Card>
       </div>

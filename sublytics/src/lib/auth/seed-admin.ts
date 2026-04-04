@@ -12,16 +12,16 @@ export async function seedAdminUser() {
   const supabase = createAdminClient();
 
   try {
-    // Check if admin already exists
-    const { data: existingProfile } = await supabase
+    // Check if any SYSTEM_ADMIN already exists
+    const { data: existingAdmin } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('email', adminEmail)
+      .eq('role', 'SYSTEM_ADMIN')
       .single();
 
-    if (existingProfile) {
-      console.log('✅ Admin user already exists');
-      return { success: true, message: 'Admin already exists' };
+    if (existingAdmin) {
+      console.log('✅ SYSTEM_ADMIN user already exists');
+      return { success: true, message: 'SYSTEM_ADMIN already exists' };
     }
 
     // Create admin user
@@ -36,12 +36,14 @@ export async function seedAdminUser() {
       return { success: false, message: authError.message };
     }
 
-    // Update user profile to set as admin and no password change required
+    // Update user profile to set as system admin and no password change required
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
-        role: 'ADMIN',
+        role: 'SYSTEM_ADMIN',
+        full_name: 'System Admin',
         requires_password_change: false,
+        email_verified: true,
         is_active: true,
       })
       .eq('id', authData.user.id);

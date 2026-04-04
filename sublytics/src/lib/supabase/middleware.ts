@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
+  console.log('🛡️ [Middleware] Request:', request.nextUrl.pathname);
+  
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -37,12 +39,15 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  console.log('🛡️ [Middleware] User:', user ? user.id : 'No user');
+
   // Define public paths that don't require authentication
   const publicPaths = [
     '/login',
     '/auth',
     '/forgot-password',
     '/reset-password',
+    '/set-password',
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/auth/magic-link',
@@ -50,6 +55,7 @@ export async function updateSession(request: NextRequest) {
   ];
 
   // Define auth pages that logged-in users shouldn't access
+  // NOTE: /set-password is NOT here because users need to access it after magic link
   const authPages = ['/login', '/forgot-password', '/reset-password'];
 
   const isPublicPath = publicPaths.some(path => 
@@ -60,32 +66,24 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith(path)
   );
 
-  // Redirect authenticated users away from auth pages
+  console.log('🛡️ [Middleware] isPublicPath:', isPublicPath, 'isAuthPage:', isAuthPage);
+
+  // Redirect authenticated users away from auth pages (but allow /set-password)
   if (user && isAuthPage) {
+    console.log('🛡️ [Middleware] Authenticated user on auth page, redirecting to /dashboard');
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
   }
 
   if (!user && !isPublicPath) {
+    console.log('🛡️ [Middleware] Unauthenticated user on protected path, redirecting to /login');
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
-  // If you're creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({ request })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object to fit your needs, but avoid changing
-  //    the cookies!
-  // 4. Finally:
-  //    return myNewResponse
-  // If this is not done, you may be causing the browser and server to go out
-  // of sync and terminate the user's session prematurely.
-
+  console.log('🛡️ [Middleware] Allowing request to proceed');
   return supabaseResponse;
 }

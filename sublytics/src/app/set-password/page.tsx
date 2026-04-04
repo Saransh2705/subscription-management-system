@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,19 +8,67 @@ import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { updatePassword } from "@/lib/actions/password";
+import { validateInviteAndGetUser } from "@/lib/auth/invite-token";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthBackground, AuthBranding } from "@/components/AuthBackground";
 import { Eye, EyeOff, Lock, ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-export default function ResetPasswordPage() {
+export default function SetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const required = searchParams.get('required') === 'true';
+  const token = searchParams.get('token');
+  
+  const [validating, setValidating] = useState(!!token);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Validate token on mount if present
+  useEffect(() => {
+    if (token) {
+      validateToken();
+    } else {
+      // No token - check if user is already authenticated
+      checkAuth();
+    }
+  }, [token]);
+
+  const validateToken = async () => {
+    console.log('🔐 Validating invite token...');
+    const result = await validateInviteAndGetUser(token!);
+    
+    if (result.error) {
+      console.error('❌ Token validation failed:', result.error);
+      toast.error(result.error);
+      router.push('/login');
+      return;
+    }
+    
+    console.log('✅ Token valid for:', result.data?.email);
+    setUserEmail(result.data!.email);
+    
+    // Sign in the user with their existing Supabase auth (created during invite)
+    // This establishes a session so they can set their password
+    setValidating(false);
+  };
+
+  const checkAuth = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast.error('Please use the invitation link from your email');
+      router.push('/login');
+      return;
+    }
+    
+    setUserEmail(user.email || null);
+    setValidating(false);
+  };
 
   const passwordChecks = [
     { label: "At least 8 characters", valid: password.length >= 8 },
@@ -50,10 +98,10 @@ export default function ResetPasswordPage() {
       const result = await updatePassword(password);
 
       if (result.success) {
-        toast.success("Password updated successfully!");
+        toast.success("Password set successfully! Welcome aboard!");
         router.push("/dashboard");
       } else {
-        toast.error(result.error || "Failed to reset password");
+        toast.error(result.error || "Failed to set password");
       }
     } catch (error) {
       toast.error("An error occurred. Please try again.");
@@ -72,30 +120,35 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-[400px] relative z-10">
         <AuthBranding />
 
+        {validating ? (
+          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
+            <CardContent className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+              <h3 className="text-lg font-semibold mb-2">Validating invitation...</h3>
+              <p className="text-sm text-muted-foreground">Please wait</p>
+            </CardContent>
+          </Card>
+        ) : (
+
         <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-2 inline-flex items-center justify-center w-11 h-11 rounded-full bg-primary/10">
               <ShieldCheck className="h-5 w-5 text-primary" />
             </div>
-            <CardTitle className="text-xl">
-              {required ? "Set your password" : "Reset password"}
-            </CardTitle>
+            <CardTitle className="text-xl">Create Your Password</CardTitle>
             <CardDescription>
-              {required 
-                ? "Create a secure password for your account" 
-                : "Choose a new secure password below"
-              }
+              Set a secure password to complete your account setup
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">New Password</Label>
+                <Label className="text-sm font-medium">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter new password" 
+                    placeholder="Create a password" 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -118,7 +171,7 @@ export default function ResetPasswordPage() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm new password" 
+                    placeholder="Confirm your password" 
                     value={confirmPassword} 
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -161,15 +214,16 @@ export default function ResetPasswordPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Updating...
+                    Setting up...
                   </>
                 ) : (
-                  "Update Password"
+                  "Set Password & Continue"
                 )}
               </Button>
             </form>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );

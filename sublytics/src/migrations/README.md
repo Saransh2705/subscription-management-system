@@ -21,6 +21,43 @@ Run this first in your Supabase SQL Editor.
 1. First run `003a_system_admin_step1.sql` 
 2. Then run `003b_system_admin_step2.sql`
 
+### 4. `004_rate_limiting.sql`
+**Rate Limiting & Security System** - Prevents brute force attacks and tracks authentication attempts.
+
+**Features:**
+- Tracks all login attempts (IP, email, user agent, timestamp)
+- Auto-blocks IPs after 5 failed attempts in 15 minutes
+- Manual IP blocking by SYSTEM_ADMIN
+- Dashboard visible only to SYSTEM_ADMIN
+- 30-day attempt history retention
+
+**Configuration:**
+- Max failed attempts: 5 in 15 minutes
+- Auto-block duration: 60 minutes
+- Permanent blocks available for persistent threats
+
+Run this file to enable rate limiting and security monitoring.
+
+### 5. `005_email_verification_tracking.sql`
+**Email Verification & Invite Management** - Tracks invitation status and enables fault-tolerant invites.
+
+**Features:**
+- `email_verified` - Tracks if user has completed password setup
+- `invited_at` - Timestamp of first invitation
+- `invited_by` - Admin who sent the invitation
+- `last_invite_sent_at` - Timestamp of last invite resend
+- Allows re-inviting users who haven't completed setup
+- Separates active staff from pending invitations
+- Enables invite cancellation for unverified users
+
+**Benefits:**
+- Fault tolerance: Resend invites if email fails
+- Clear separation between active and pending users
+- Track invitation history and responsible admin
+- Prevent duplicate invites for verified users
+
+Run this file to enable advanced invitation tracking.
+
 ## How to Apply Migrations
 
 ### Step 1: Access Supabase SQL Editor
@@ -139,6 +176,22 @@ Default credentials (from `.env.local`):
 - Email: `admin@sublytics.com`
 - Password: `Admin@123456`
 
+The seed script automatically creates a SYSTEM_ADMIN user with role protection.
+
+## Rate Limiting Dashboard
+
+After applying migration `004_rate_limiting.sql`, SYSTEM_ADMIN users can access the Security dashboard:
+
+**URL**: `http://localhost:3000/security`
+
+**Features:**
+- View authentication attempt statistics (last 24 hours)
+- Monitor recent login attempts with IP addresses
+- Manage blocked IPs (view, block, unblock)
+- See auto-blocked IPs from failed login attempts
+
+**Access**: Only users with `SYSTEM_ADMIN` role can view this dashboard.
+
 ---
 
-**Last Updated**: Migration 002 - RLS Policies for Authentication Fix
+**Last Updated**: Migration 004 - Rate Limiting & Security System

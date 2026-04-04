@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,9 +10,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { signInWithPassword } from "@/lib/actions/auth";
+import { checkUserProfileStatus } from "@/lib/actions/profile";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AuthBackground, AuthBranding } from "@/components/AuthBackground";
 import { Lock, Mail, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +24,88 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [processingMagicLink, setProcessingMagicLink] = useState(false);
+
+  // Handle magic link authentication via auth state change
+  useEffect(() => {
+    const supabase = createClient();
+    
+    // Check if there's a hash fragment (magic link)
+    const hashFragment = window.location.hash;
+    console.log('🔍 Hash fragment detected:', hashFragment ? 'YES' : 'NO');
+    console.log('🔍 Full hash:', hashFragment);
+    
+    if (hashFragment && hashFragment.includes('access_token')) {
+      console.log('✅ Magic link detected, setting loading states');
+      setProcessingMagicLink(true);
+      setLoading(true);
+    }
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔔 Auth event:', event);
+      console.log('🔔 Session exists:', !!session);
+      console.log('🔔 User ID:', session?.user?.id);
+      
+      if (event === 'SIGNED_IN' && session) {
+        console.log('✅ SIGNED_IN event received');
+        try {
+          // Use server action with admin client to check profile
+          console.log('📞 Calling checkUserProfileStatus...');
+          const result = await checkUserProfileStatus();
+          console.log('📊 Profile result:', result);
+          
+          if (result.error) {
+            console.error('❌ Error fetching profile:', result.error);
+            toast.error('Failed to load user profile.');
+            setLoading(false);
+            setProcessingMagicLink(false);
+            return;
+          }
+          
+          // Clear the hash before redirecting
+          if (window.location.hash) {
+            console.log('🧹 Clearing hash from URL');
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+          
+          const { requiresPasswordChange, emailVerified } = result.data!;
+          console.log('👤 Profile status:', { requiresPasswordChange, emailVerified });
+          
+          if (requiresPasswordChange || !emailVerified) {
+            console.log('🔐 Redirecting to /set-password');
+            toast.success('Welcome! Please set your password.');
+            router.push('/set-password');
+          } else {
+            console.log('📊 Redirecting to /dashboard');
+            toast.success('Login successful!');
+            router.push('/dashboard');
+          }
+          router.refresh();
+        } catch (error) {
+          console.error('❌ Error processing auth:', error);
+          toast.error('An error occurred. Please try again.');
+          setLoading(false);
+          setProcessingMagicLink(false);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 SIGNED_OUT event received');
+        setLoading(false);
+        setProcessingMagicLink(false);
+      } else if (event === 'INITIAL_SESSION') {
+        console.log('🏁 INITIAL_SESSION event received');
+        if (session) {
+          console.log('⚠️ Session exists on initial load, this might be a returning user');
+        }
+      } else {
+        console.log('ℹ️ Other auth event:', event);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,35 +129,32 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4 relative">
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
+      <AuthBackground />
+
       {/* Theme toggle */}
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      {/* Decorative background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-primary/3 rounded-full blur-3xl" />
-      </div>
-
       <div className="w-full max-w-[400px] relative z-10">
-        {/* Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4">
-            <span className="text-primary-foreground font-bold text-2xl">S</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Sublytics</h1>
-          <p className="text-muted-foreground text-sm mt-1">Subscription management, simplified</p>
-        </div>
+        <AuthBranding />
 
-        <Card className="border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 backdrop-blur-sm">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl">Welcome back</CardTitle>
-            <CardDescription>Sign in to your account to continue</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
+        {processingMagicLink ? (
+          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
+            <CardContent className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+              <h3 className="text-lg font-semibold mb-2">Authenticating...</h3>
+              <p className="text-sm text-muted-foreground">Please wait while we sign you in</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
+            <CardHeader className="text-center pb-4">
+              <CardTitle className="text-xl">Welcome back</CardTitle>
+              <CardDescription>Sign in to your account to continue</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
@@ -156,6 +238,7 @@ export default function LoginPage() {
             </p>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );
