@@ -7,6 +7,16 @@ import { revalidatePath } from 'next/cache';
 export async function getQuotations() {
   const supabase = await createClient();
   
+  // Check if user is authenticated
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
+    console.error('Auth error in getQuotations:', authError);
+    return { data: [], error: 'Not authenticated' };
+  }
+  
+  console.log('Fetching quotations for user:', user.id);
+  
   const { data, error } = await supabase
     .from('quotations')
     .select(`
@@ -30,6 +40,8 @@ export async function getQuotations() {
     console.error('Error fetching quotations:', error);
     return { data: [], error: error.message };
   }
+  
+  console.log('Quotations fetched:', data?.length || 0);
 
   return { data: data || [], error: null };
 }
