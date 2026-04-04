@@ -1,10 +1,11 @@
 "use client";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Search, Bell, User } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function AppHeader() {
   return (
@@ -20,6 +21,7 @@ export function AppHeader() {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <Button variant="ghost" size="icon" className="text-muted-foreground">
           <Bell className="h-4 w-4" />
         </Button>

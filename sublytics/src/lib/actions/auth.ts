@@ -4,6 +4,47 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { sendMagicLinkEmail } from '@/lib/email/resend';
 
+export async function signInWithPassword(email: string, password: string) {
+  try {
+    if (!email || !password) {
+      return { error: 'Email and password are required' };
+    }
+
+    const supabase = await createClient();
+
+    // Check if user exists and is active
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (!profile) {
+      return { error: 'Invalid email or password' };
+    }
+
+    if (!profile.is_active) {
+      return { error: 'Account is disabled. Please contact support.' };
+    }
+
+    // Sign in with email and password
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Sign in error:', error);
+      return { error: 'Invalid email or password' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in signInWithPassword:', error);
+    return { error: 'An unexpected error occurred' };
+  }
+}
+
 export async function sendMagicLink(email: string) {
   try {
     if (!email) {
