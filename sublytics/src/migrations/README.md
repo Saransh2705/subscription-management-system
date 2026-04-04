@@ -14,6 +14,13 @@ Run this first in your Supabase SQL Editor.
 
 **IMPORTANT:** Run this file to fix login authentication issues!
 
+### 3. `003a_system_admin_step1.sql` & `003b_system_admin_step2.sql`
+**Add SYSTEM_ADMIN Role** - Creates a super admin role that cannot be modified.
+
+**IMPORTANT:** These MUST be run in 2 steps due to PostgreSQL enum constraints:
+1. First run `003a_system_admin_step1.sql` 
+2. Then run `003b_system_admin_step2.sql`
+
 ## How to Apply Migrations
 
 ### Step 1: Access Supabase SQL Editor

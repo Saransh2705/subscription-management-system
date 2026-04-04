@@ -49,9 +49,9 @@ export function hasRole(user: UserProfile, roles: UserRole[]): boolean {
 }
 
 export function canManageUsers(user: UserProfile): boolean {
-  return user.role === 'ADMIN';
+  return user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN';
 }
 
 export function canViewUsers(user: UserProfile): boolean {
-  return ['ADMIN', 'MANAGER'].includes(user.role);
+  return ['ADMIN', 'MANAGER', 'SYSTEM_ADMIN'].includes(user.role);
 }

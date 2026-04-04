@@ -5,14 +5,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRole } from '@/lib/auth/rbac';
 import type { UserRole } from '@/lib/types/auth';
 import { sendMagicLinkEmail } from '@/lib/email/resend';
-import { randomBytes } from 'crypto';
+import { revalidatePath } from 'next/cache';
 
 export async function getUsers() {
   await requireRole(['ADMIN']);
   
-  const supabase = await createClient();
+  // Use admin client to bypass RLS
+  const adminClient = createAdminClient();
   
-  const { data, error } = await supabase
+  const { data, error } = await adminClient
     .from('user_profiles')
     .select('*')
     .order('created_at', { ascending: false });
@@ -29,11 +30,10 @@ export async function inviteUser(email: string, role: UserRole) {
   await requireRole(['ADMIN']);
 
   try {
-    const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
+    // Check if user already exists using admin client
+    const { data: existingUser } = await adminClient
       .from('user_profiles')
       .select('*')
       .eq('email', email)
@@ -54,8 +54,8 @@ export async function inviteUser(email: string, role: UserRole) {
       return { error: 'Failed to create user' };
     }
 
-    // Update user profile with role
-    const { error: profileError } = await supabase
+    // Update user profile with role using admin client
+    const { error: profileError } = await adminClient
       .from('user_profiles')
       .update({
         role,
@@ -87,6 +87,7 @@ export async function inviteUser(email: string, role: UserRole) {
       type: 'invite',
     });
 
+    revalidatePath('/staff');
     return { 
       success: true,
       message: 'User invited successfully' 
@@ -100,9 +101,20 @@ export async function inviteUser(email: string, role: UserRole) {
 export async function toggleUserStatus(userId: string, isActive: boolean) {
   await requireRole(['ADMIN']);
 
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
 
-  const { error } = await supabase
+  // Prevent changing status of SYSTEM_ADMIN
+  const { data: user } = await adminClient
+    .from('user_profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (user?.role === 'SYSTEM_ADMIN') {
+    return { error: 'Cannot modify SYSTEM_ADMIN user' };
+  }
+
+  const { error } = await adminClient
     .from('user_profiles')
     .update({ is_active: isActive })
     .eq('id', userId);
@@ -112,6 +124,7 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
     return { error: 'Failed to update user status' };
   }
 
+  revalidatePath('/staff');
   return { 
     success: true,
     message: `User ${isActive ? 'enabled' : 'disabled'} successfully` 
@@ -121,9 +134,25 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
 export async function updateUserRole(userId: string, role: UserRole) {
   await requireRole(['ADMIN']);
 
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
 
-  const { error } = await supabase
+  // Prevent changing role of SYSTEM_ADMIN
+  const { data: user } = await adminClient
+    .from('user_profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (user?.role === 'SYSTEM_ADMIN') {
+    return { error: 'Cannot change role of SYSTEM_ADMIN user' };
+  }
+
+  // Prevent promoting to SYSTEM_ADMIN
+  if (role === 'SYSTEM_ADMIN') {
+    return { error: 'SYSTEM_ADMIN role can only be set manually in database' };
+  }
+
+  const { error } = await adminClient
     .from('user_profiles')
     .update({ role })
     .eq('id', userId);
@@ -133,6 +162,7 @@ export async function updateUserRole(userId: string, role: UserRole) {
     return { error: 'Failed to update user role' };
   }
 
+  revalidatePath('/staff');
   return { 
     success: true,
     message: 'User role updated successfully' 
