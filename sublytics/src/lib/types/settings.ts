@@ -21,6 +21,7 @@ export interface SystemSettings {
   payment_gateway_name: string | null;
   payment_gateway_api_key: string | null;
   payment_gateway_secret_key: string | null;
+  resend_api_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +63,7 @@ export interface UpdateSystemSettingsInput {
   payment_gateway_name?: string | null;
   payment_gateway_api_key?: string | null;
   payment_gateway_secret_key?: string | null;
+  resend_api_key?: string | null;
 }
 
 export interface CreateCurrencyROEInput {

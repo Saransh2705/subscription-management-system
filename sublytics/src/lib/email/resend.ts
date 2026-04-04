@@ -1,6 +1,29 @@
 import { Resend } from 'resend';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+async function getEmailConfig() {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('resend_api_key, company_email, company_name')
+      .single();
+    
+    if (error || !data) {
+      console.error('❌ Failed to fetch email config from database:', error);
+      return null;
+    }
+    
+    return {
+      apiKey: data.resend_api_key || process.env.RESEND_API_KEY,
+      senderEmail: data.company_email,
+      senderName: data.company_name,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching email config:', error);
+    return null;
+  }
+}
 
 export interface SendMagicLinkParams {
   email: string;
@@ -38,8 +61,34 @@ export async function sendMagicLinkEmail({
   }[type];
 
   try {
+    // Get email config from database
+    const config = await getEmailConfig();
+    
+    if (!config) {
+      console.error('❌ Email configuration not available');
+      return { success: false, error: 'Email configuration not available' };
+    }
+
+    if (!config.apiKey) {
+      console.error('❌ Resend API key not configured');
+      console.error('   Please set it in Settings > Company > Email Configuration');
+      return { success: false, error: 'Resend API key not configured' };
+    }
+
+    if (!config.senderEmail) {
+      console.error('❌ Mail sender email not configured');
+      return { success: false, error: 'Mail sender email not configured' };
+    }
+
+    const resend = new Resend(config.apiKey);
+    
+    console.log("📧 Sending magic link email ("+type+") to:", email);
+    console.log("   From:", `${config.senderName} <${config.senderEmail}>`);
+    console.log("   Subject:", subject);
+    console.log("   Config source: Database (system_settings)");
+    
     const { data, error } = await resend.emails.send({
-      from: `${process.env.MAIL_SENDER_NAME} <${process.env.MAIL_SENDER_EMAIL}>`,
+      from: `${config.senderName} <${config.senderEmail}>`,
       to: [email],
       subject,
       html: getMagicLinkEmailTemplate({
@@ -51,13 +100,18 @@ export async function sendMagicLinkEmail({
     });
 
     if (error) {
-      console.error('Error sending email:', error);
+      console.error('❌ Resend API error:', error);
+      console.error('   Error details:', JSON.stringify(error, null, 2));
       return { success: false, error };
     }
 
+    console.log("✅ Email sent successfully!");
+    console.log("   Response:", JSON.stringify(data, null, 2));
     return { success: true, data };
-  } catch (error) {
-    console.error('Error sending email:', error);
+  } catch (error: any) {
+    console.error('❌ Failed to send email:', error?.message || error);
+    console.error('   Stack trace:', error?.stack);
+    console.error('   Check Settings > Company > Email Configuration');
     return { success: false, error };
   }
 }

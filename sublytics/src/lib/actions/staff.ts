@@ -140,16 +140,21 @@ export async function inviteUser(email: string, fullName: string, role: UserRole
     console.log('✉️ Generated invite URL:', inviteUrl);
 
     // Send invite email with our simple URL
-    await sendMagicLinkEmail({
+    const emailResult = await sendMagicLinkEmail({
       email,
       magicLink: inviteUrl,
       type: 'invite',
     });
 
+    if (!emailResult.success) {
+      console.error('Failed to send invite email:', emailResult.error);
+      return { error: 'User created but failed to send invite email. Please check email configuration in Settings.' };
+    }
+
     revalidatePath('/staff');
     return { 
       success: true,
-      message: isResend ? 'Invitation resent successfully' : 'User invited successfully' 
+      message: isResend ? 'Invitation resent successfully' : 'User invited and email sent successfully' 
     };
   } catch (error) {
     console.error('Error in inviteUser:', error);
@@ -286,6 +291,18 @@ export async function resendInvite(userId: string) {
     
     console.log('✉️ Generated resend invite URL:', inviteUrl);
 
+    // Send invite email with our simple URL
+    const emailResult = await sendMagicLinkEmail({
+      email: user.email,
+      magicLink: inviteUrl,
+      type: 'invite',
+    });
+
+    if (!emailResult.success) {
+      console.error('Failed to send invite email:', emailResult.error);
+      return { error: 'Failed to send invite email. Please check email configuration in Settings.' };
+    }
+
     // Update last invite sent timestamp
     await adminClient
       .from('user_profiles')
@@ -294,17 +311,10 @@ export async function resendInvite(userId: string) {
       })
       .eq('id', userId);
 
-    // Send invite email with our simple URL
-    await sendMagicLinkEmail({
-      email: user.email,
-      magicLink: inviteUrl,
-      type: 'invite',
-    });
-
     revalidatePath('/staff');
     return {
       success: true,
-      message: 'Invitation resent successfully'
+      message: 'Invitation email sent successfully'
     };
   } catch (error) {
     console.error('Error resending invite:', error);

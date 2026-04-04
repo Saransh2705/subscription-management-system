@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -22,11 +20,29 @@ export async function POST(
     const { email } = await request.json();
     const quotationId = params.id;
 
-    // Fetch system settings for sender email
+    // Fetch system settings for sender email and Resend API key
     const { data: settings } = await supabase
       .from("system_settings")
-      .select("company_name, company_email")
+      .select("company_name, company_email, resend_api_key")
       .single();
+
+    if (!settings?.resend_api_key) {
+      console.error("❌ Resend API key not configured in system settings");
+      return NextResponse.json(
+        { success: false, error: "Email service not configured. Please set Resend API key in Settings." },
+        { status: 500 }
+      );
+    }
+
+    if (!settings?.company_email) {
+      console.error("❌ Company email not configured in system settings");
+      return NextResponse.json(
+        { success: false, error: "Sender email not configured. Please set company email in Settings." },
+        { status: 500 }
+      );
+    }
+
+    const resend = new Resend(settings.resend_api_key);
 
     // Fetch quotation details
     const { data: quotation, error: quotationError } = await supabase
@@ -140,20 +156,29 @@ export async function POST(
     `;
 
     // Send email using Resend
+    console.log("📧 Sending quotation email to:", email);
+    console.log("   From:", `${settings.company_name} <${settings.company_email}>`);
+    console.log("   Quotation:", quotation.quotation_number);
+    console.log("   Total items:", quotation.quotation_items.length);
+    
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: `${settings?.company_name || 'Sublytics'} <${process.env.MAIL_SENDER_EMAIL}>`,
+      from: `${settings.company_name} <${settings.company_email}>`,
       to: email,
-      subject: `Quotation ${quotation.quotation_number} from ${settings?.company_name}`,
+      subject: `Quotation ${quotation.quotation_number} from ${settings.company_name}`,
       html: htmlContent,
     });
 
     if (emailError) {
-      console.error("Error sending email:", emailError);
+      console.error("❌ Error sending quotation email:", emailError);
+      console.error("   Details:", JSON.stringify(emailError, null, 2));
       return NextResponse.json(
-        { success: false, error: "Failed to send email" },
+        { success: false, error: emailError.message || "Failed to send email" },
         { status: 500 }
       );
     }
+
+    console.log("✅ Quotation email sent successfully!");
+    console.log("   Email ID:", emailData?.id);
 
     // Update quotation status to 'sent'
     await supabase

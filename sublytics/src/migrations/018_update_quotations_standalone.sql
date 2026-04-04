@@ -67,10 +67,10 @@ CREATE POLICY "Service role has full access to quotations"
   FOR ALL
   USING (auth.jwt()->>'role' = 'service_role');
 
-CREATE POLICY "Active users can view quotations"
+CREATE POLICY "Authenticated users can view quotations"
   ON public.quotations
   FOR SELECT
-  USING (is_active_user());
+  USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Managers and admins can insert quotations"
   ON public.quotations
@@ -93,10 +93,10 @@ CREATE POLICY "Service role has full access to quotation_items"
   FOR ALL
   USING (auth.jwt()->>'role' = 'service_role');
 
-CREATE POLICY "Active users can view quotation_items"
+CREATE POLICY "Authenticated users can view quotation_items"
   ON public.quotation_items
   FOR SELECT
-  USING (is_active_user());
+  USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Managers and admins can insert quotation_items"
   ON public.quotation_items

@@ -58,11 +58,19 @@ export async function POST(request: Request) {
     
     // Note: Supabase will send its own email, but we'll also send via Resend for customization
     // You may want to disable Supabase's email in the dashboard
-    await sendMagicLinkEmail({
+    const emailResult = await sendMagicLinkEmail({
       email,
       magicLink,
       type: 'login',
     });
+
+    if (!emailResult.success) {
+      console.error('Failed to send magic link email:', emailResult.error);
+      return NextResponse.json(
+        { error: 'Failed to send magic link email. Please contact support.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { message: 'Magic link sent successfully' },

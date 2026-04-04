@@ -49,6 +49,7 @@ export function SettingsPageClient({ initialSettings }: SettingsPageClientProps)
         company_country: settings.company_country,
         system_currency_code: settings.system_currency_code,
         tax_id: settings.tax_id,
+        resend_api_key: settings.resend_api_key,
       });
       toast.success('Company settings saved successfully');
     } catch (error: any) {
@@ -169,6 +170,40 @@ export function SettingsPageClient({ initialSettings }: SettingsPageClientProps)
                     onChange={(e) => setSettings({ ...settings, company_country: e.target.value })}
                     placeholder="e.g., US, GB, IN"
                   />
+                </div>
+              </div>
+
+              <Separator className="my-6" />
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Email Configuration</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Emails will be sent from <strong>{settings.company_email}</strong> as <strong>{settings.company_name}</strong>
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Resend API Key</Label>
+                  <div className="relative">
+                    <Input
+                      type={showSecret ? 'text' : 'password'}
+                      value={settings.resend_api_key || ''}
+                      onChange={(e) => setSettings({ ...settings, resend_api_key: e.target.value })}
+                      placeholder="re_xxxxxxxxxxxxxxxxxxxx"
+                      className="font-mono pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowSecret(!showSecret)}
+                    >
+                      {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Your Resend API key for sending emails (magic links, invites, etc.)</p>
                 </div>
               </div>
 

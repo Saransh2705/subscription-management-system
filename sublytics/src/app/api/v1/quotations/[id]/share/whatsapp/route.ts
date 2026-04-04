@@ -191,7 +191,14 @@ _This quotation is valid until ${new Date(quotation.valid_until).toLocaleDateStr
 
     // Send WhatsApp message
     try {
+      console.log("📱 Sending WhatsApp message to:", phone);
+      console.log("   Quotation:", quotation.quotation_number);
+      console.log("   Total items:", quotation.quotation_items.length);
+      
       const result = await sendWhatsAppMessage(phone, message, token);
+
+      console.log("✅ WhatsApp message sent successfully!");
+      console.log("   Message ID:", result.messageId);
 
       // Update quotation status to 'sent'
       await supabase
@@ -205,9 +212,11 @@ _This quotation is valid until ${new Date(quotation.valid_until).toLocaleDateStr
         messageId: result.messageId,
       });
     } catch (error: any) {
-      console.error("WhatsApp send error:", error);
+      console.error("❌ WhatsApp send error:", error?.message || error);
+      console.error("   Phone:", phone);
+      console.error("   Stack:", error?.stack);
       return NextResponse.json(
-        { success: false, error: "Failed to send WhatsApp message" },
+        { success: false, error: error?.message || "Failed to send WhatsApp message" },
         { status: 500 }
       );
     }
