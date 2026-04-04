@@ -9,7 +9,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { sendPasswordResetEmail } from "@/lib/actions/password";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowLeft, CheckCircle2, Loader2, KeyRound } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
         </div>
-        <div className="w-full max-w-sm relative z-10">
+        <div className="w-full max-w-[400px] relative z-10">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4">
               <span className="text-primary-foreground font-bold text-2xl">S</span>
@@ -56,22 +56,31 @@ export default function ForgotPasswordPage() {
           </div>
 
           <Card className="border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 backdrop-blur-sm">
-            <CardHeader className="text-center">
+            <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-2 inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30">
                 <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <CardTitle className="text-xl">Check your email</CardTitle>
-              <CardDescription>
-                We&apos;ve sent a password reset link to your email. Click the link to reset your password.
+              <CardDescription className="mt-1">
+                We&apos;ve sent a password reset link to <span className="font-medium text-foreground">{email}</span>. Click the link to reset your password.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Link href="/login">
-                <Button className="w-full font-medium gap-2">
+                <Button className="w-full h-10 font-medium gap-2">
                   <ArrowLeft className="h-4 w-4" />
                   Back to login
                 </Button>
               </Link>
+              <p className="text-xs text-muted-foreground text-center">
+                Didn&apos;t receive an email? Check your spam folder or{" "}
+                <button 
+                  onClick={() => setSent(false)} 
+                  className="text-primary hover:underline"
+                >
+                  try again
+                </button>
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -88,7 +97,7 @@ export default function ForgotPasswordPage() {
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
       </div>
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-[400px] relative z-10">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4">
             <span className="text-primary-foreground font-bold text-2xl">S</span>
@@ -98,14 +107,17 @@ export default function ForgotPasswordPage() {
         </div>
 
         <Card className="border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 backdrop-blur-sm">
-          <CardHeader className="text-center pb-2">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto mb-2 inline-flex items-center justify-center w-11 h-11 rounded-full bg-primary/10">
+              <KeyRound className="h-5 w-5 text-primary" />
+            </div>
             <CardTitle className="text-xl">Forgot password?</CardTitle>
-            <CardDescription>Enter your email and we&apos;ll send you a reset link</CardDescription>
+            <CardDescription>No worries, we&apos;ll send you a reset link</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
+                <Label htmlFor="reset-email" className="text-sm font-medium">Email address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
@@ -115,9 +127,33 @@ export default function ForgotPasswordPage() {
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-9"
+                    className="pl-9 h-10"
                   />
                 </div>
+              </div>
+              <Button type="submit" className="w-full h-10 font-medium gap-2" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Reset Link"
+                )}
+              </Button>
+            </form>
+            <div className="text-center">
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to login
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
               </div>
               <Button type="submit" className="w-full font-medium" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}

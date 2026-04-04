@@ -13,7 +13,7 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        <AppSidebar user={user} />
         <div className="flex-1 flex flex-col min-w-0">
           <AppHeader user={user} />
           <main className="flex-1 overflow-auto">

@@ -13,6 +13,7 @@ import {
   Mail,
   LogOut,
   UserCog,
+  ChevronsUpDown,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,7 +29,17 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { signOut } from "@/lib/actions/auth";
+import type { UserProfile } from "@/lib/types/auth";
+import { getUserInitials } from "@/components/AppHeader";
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -47,12 +58,17 @@ const secondaryNav = [
   { title: "Email Templates", url: "/email-templates", icon: Mail },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  user: UserProfile;
+}
+
+export function AppSidebar({ user }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
+  const initials = getUserInitials(user);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -109,18 +125,45 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <button 
-                onClick={async () => await signOut()}
-                className="flex w-full items-center gap-2 text-muted-foreground hover:text-destructive cursor-pointer"
-              >
-                <LogOut className="h-4 w-4" />
-                {!collapsed && <span>Sign out</span>}
-              </button>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton className="h-auto py-2 cursor-pointer">
+                  <Avatar className="h-7 w-7 shrink-0">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-semibold">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  {!collapsed && (
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium truncate leading-tight">
+                        {user.full_name || user.email.split('@')[0]}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate leading-tight">
+                        {user.email}
+                      </p>
+                    </div>
+                  )}
+                  {!collapsed && <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuItem className="cursor-pointer gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="cursor-pointer gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                  onClick={async () => await signOut()}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

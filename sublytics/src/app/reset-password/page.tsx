@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { updatePassword } from "@/lib/actions/password";
-import { Eye, EyeOff } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Eye, EyeOff, Lock, ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -19,6 +20,15 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const passwordChecks = [
+    { label: "At least 8 characters", valid: password.length >= 8 },
+    { label: "Contains a number", valid: /\d/.test(password) },
+    { label: "Contains uppercase", valid: /[A-Z]/.test(password) },
+    { label: "Passwords match", valid: password.length > 0 && password === confirmPassword },
+  ];
+
+  const allValid = passwordChecks.every(c => c.valid);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,74 +62,119 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm animate-fade-in">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-[400px] relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary mb-4">
-            <span className="text-primary-foreground font-bold text-xl">S</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4">
+            <span className="text-primary-foreground font-bold text-2xl">S</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Sublytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Sublytics</h1>
           <p className="text-muted-foreground text-sm mt-1">Subscription management, simplified</p>
         </div>
 
-        <Card className="border border-border/50 shadow-sm">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="text-lg">
+        <Card className="border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 backdrop-blur-sm">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto mb-2 inline-flex items-center justify-center w-11 h-11 rounded-full bg-primary/10">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+            </div>
+            <CardTitle className="text-xl">
               {required ? "Set your password" : "Reset password"}
             </CardTitle>
             <CardDescription>
               {required 
                 ? "Create a secure password for your account" 
-                : "Enter your new password below"
+                : "Choose a new secure password below"
               }
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>New Password</Label>
+                <Label className="text-sm font-medium">New Password</Label>
                 <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••" 
+                    placeholder="Enter new password" 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="pr-10"
+                    className="pl-9 pr-10 h-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Confirm Password</Label>
+                <Label className="text-sm font-medium">Confirm Password</Label>
                 <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••" 
+                    placeholder="Confirm new password" 
                     value={confirmPassword} 
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="pr-10"
+                    className="pl-9 pr-10 h-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Updating..." : "Update Password"}
+
+              {/* Password strength checks */}
+              {password.length > 0 && (
+                <div className="space-y-1.5 p-3 rounded-lg bg-muted/50 border border-border/50">
+                  {passwordChecks.map((check, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${
+                        check.valid 
+                          ? 'text-green-500 dark:text-green-400' 
+                          : 'text-muted-foreground/40'
+                      }`} />
+                      <span className={check.valid 
+                        ? 'text-foreground' 
+                        : 'text-muted-foreground'
+                      }>
+                        {check.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full h-10 font-medium gap-2" disabled={loading || !allValid}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Password"
+                )}
               </Button>
             </form>
           </CardContent>
