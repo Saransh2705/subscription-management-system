@@ -54,11 +54,11 @@ const mainNav = [
 ];
 
 const secondaryNav = [
-  { title: "Staff", url: "/staff", icon: UserCog, systemAdminOnly: true },
-  { title: "Settings", url: "/settings", icon: Settings, systemAdminOnly: true },
-  { title: "ROE Management", url: "/roe-management", icon: DollarSign, systemAdminOnly: true },
-  { title: "API & Docs", url: "/api-docs", icon: Code, systemAdminOnly: true },
-  { title: "Email Templates", url: "/email-templates", icon: Mail, systemAdminOnly: true },
+  { title: "Staff", url: "/staff", icon: UserCog, roles: ['SYSTEM_ADMIN', 'ADMIN', 'MANAGER'] },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ['SYSTEM_ADMIN', 'ADMIN'] },
+  { title: "ROE Management", url: "/roe-management", icon: DollarSign, roles: ['SYSTEM_ADMIN', 'ADMIN'] },
+  { title: "API & Docs", url: "/api-docs", icon: Code, roles: ['SYSTEM_ADMIN'] },
+  { title: "Email Templates", url: "/email-templates", icon: Mail, roles: ['SYSTEM_ADMIN'] },
 ];
 
 interface AppSidebarProps {
@@ -72,6 +72,14 @@ export function AppSidebar({ user }: AppSidebarProps) {
 
   const isActive = (path: string) => pathname === path;
   const initials = getUserInitials(user);
+
+  // Filter configuration items based on user role
+  const configurationItems = secondaryNav.filter((item) => 
+    item.roles.includes(user.role)
+  );
+
+  // Only show configuration section if there are items for this role
+  const showConfiguration = configurationItems.length > 0;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -107,27 +115,28 @@ export function AppSidebar({ user }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/70">
-            Configuration
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {secondaryNav
-                .filter((item) => !item.systemAdminOnly || user.role === 'SYSTEM_ADMIN')
-                .map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <Link href={item.url} className="transition-colors">
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Configuration - Only show if user has access to any config items */}
+        {showConfiguration && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/70">
+              Configuration
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {configurationItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <Link href={item.url} className="transition-colors">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Security - Only for SYSTEM_ADMIN */}
         {user.role === 'SYSTEM_ADMIN' && (

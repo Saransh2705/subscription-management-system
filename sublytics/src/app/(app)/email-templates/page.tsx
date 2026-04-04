@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -44,12 +44,26 @@ const variables = ["{{customer_name}}", "{{invoice_id}}", "{{amount}}", "{{due_d
 
 export default function EmailTemplates() {
   const [templates, setTemplates] = useState<EmailTemplate[]>(initialTemplates);
+  const [originalTemplates, setOriginalTemplates] = useState<EmailTemplate[]>(initialTemplates);
   const [selected, setSelected] = useState<string>("invoice");
 
   const current = templates.find((t) => t.id === selected)!;
+  const original = originalTemplates.find((t) => t.id === selected)!;
+
+  // Check if current template has been modified
+  const hasChanges = current && original && (
+    current.subject !== original.subject || 
+    current.body !== original.body
+  );
 
   const updateTemplate = (field: "subject" | "body", value: string) => {
     setTemplates(templates.map((t) => (t.id === selected ? { ...t, [field]: value } : t)));
+  };
+
+  const handleSave = () => {
+    // Update original templates to match current state
+    setOriginalTemplates(templates);
+    toast.success("Template saved!");
   };
 
   return (
@@ -103,7 +117,9 @@ export default function EmailTemplates() {
                 <Label>Body</Label>
                 <Textarea value={current.body} onChange={(e) => updateTemplate("body", e.target.value)} rows={8} className="font-mono text-sm" />
               </div>
-              <Button onClick={() => toast.success("Template saved!")}>Save Template</Button>
+              <Button onClick={handleSave} disabled={!hasChanges}>
+                Save Template
+              </Button>
             </CardContent>
           </Card>
         </div>

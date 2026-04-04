@@ -9,17 +9,23 @@ import { generateInviteToken } from '@/lib/auth/invite-token';
 import { revalidatePath } from 'next/cache';
 
 export async function getUsers() {
-  await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
   
   // Use admin client to bypass RLS
   const adminClient = createAdminClient();
   
-  // Get only verified users (password set)
-  const { data, error } = await adminClient
+  // Build query
+  let query = adminClient
     .from('user_profiles')
     .select('*')
-    .eq('email_verified', true)
-    .order('created_at', { ascending: false });
+    .eq('email_verified', true);
+  
+  // If MANAGER, only show users they created
+  if (currentUser.role === 'MANAGER') {
+    query = query.eq('created_by', currentUser.id);
+  }
+  
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching users:', error);
@@ -30,16 +36,22 @@ export async function getUsers() {
 }
 
 export async function getPendingInvites() {
-  await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
   
   const adminClient = createAdminClient();
   
-  // Get users who haven't verified/set password
-  const { data, error } = await adminClient
+  // Build query - Get users who haven't verified/set password
+  let query = adminClient
     .from('user_profiles')
     .select('*')
-    .eq('email_verified', false)
-    .order('invited_at', { ascending: false });
+    .eq('email_verified', false);
+  
+  // If MANAGER, only show invites they created
+  if (currentUser.role === 'MANAGER') {
+    query = query.eq('created_by', currentUser.id);
+  }
+  
+  const { data, error } = await query.order('invited_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching pending invites:', error);
@@ -50,7 +62,12 @@ export async function getPendingInvites() {
 }
 
 export async function inviteUser(email: string, fullName: string, role: UserRole) {
-  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
+
+  // MANAGER can only invite STAFF role users
+  if (currentUser.role === 'MANAGER' && role !== 'STAFF') {
+    return { error: 'Managers can only invite users with STAFF role' };
+  }
 
   try {
     const adminClient = createAdminClient();
@@ -141,19 +158,29 @@ export async function inviteUser(email: string, fullName: string, role: UserRole
 }
 
 export async function toggleUserStatus(userId: string, isActive: boolean) {
-  await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
 
   const adminClient = createAdminClient();
 
-  // Prevent changing status of SYSTEM_ADMIN
+  // Get target user to check permissions
   const { data: user } = await adminClient
     .from('user_profiles')
-    .select('role')
+    .select('role, created_by')
     .eq('id', userId)
     .single();
 
-  if (user?.role === 'SYSTEM_ADMIN') {
+  if (!user) {
+    return { error: 'User not found' };
+  }
+
+  // Prevent changing status of SYSTEM_ADMIN
+  if (user.role === 'SYSTEM_ADMIN') {
     return { error: 'Cannot modify SYSTEM_ADMIN user' };
+  }
+
+  // MANAGER can only modify users they created
+  if (currentUser.role === 'MANAGER' && user.created_by !== currentUser.id) {
+    return { error: 'You can only modify users you created' };
   }
 
   const { error } = await adminClient
@@ -174,24 +201,39 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
 }
 
 export async function updateUserRole(userId: string, role: UserRole) {
-  await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
 
   const adminClient = createAdminClient();
 
-  // Prevent changing role of SYSTEM_ADMIN
+  // Get target user to check permissions
   const { data: user } = await adminClient
     .from('user_profiles')
-    .select('role')
+    .select('role, created_by')
     .eq('id', userId)
     .single();
 
-  if (user?.role === 'SYSTEM_ADMIN') {
+  if (!user) {
+    return { error: 'User not found' };
+  }
+
+  // Prevent changing role of SYSTEM_ADMIN
+  if (user.role === 'SYSTEM_ADMIN') {
     return { error: 'Cannot change role of SYSTEM_ADMIN user' };
   }
 
   // Prevent promoting to SYSTEM_ADMIN
   if (role === 'SYSTEM_ADMIN') {
     return { error: 'SYSTEM_ADMIN role can only be set manually in database' };
+  }
+
+  // MANAGER can only modify users they created and only to STAFF role
+  if (currentUser.role === 'MANAGER') {
+    if (user.created_by !== currentUser.id) {
+      return { error: 'You can only modify users you created' };
+    }
+    if (role !== 'STAFF') {
+      return { error: 'Managers can only assign STAFF role' };
+    }
   }
 
   const { error } = await adminClient
@@ -212,7 +254,7 @@ export async function updateUserRole(userId: string, role: UserRole) {
 }
 
 export async function resendInvite(userId: string) {
-  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
 
   try {
     const adminClient = createAdminClient();
@@ -230,6 +272,11 @@ export async function resendInvite(userId: string) {
 
     if (user.email_verified) {
       return { error: 'User has already verified their email' };
+    }
+
+    // MANAGER can only resend invites they created
+    if (currentUser.role === 'MANAGER' && user.created_by !== currentUser.id) {
+      return { error: 'You can only resend invites you created' };
     }
 
     // Generate simple invite token
@@ -266,7 +313,7 @@ export async function resendInvite(userId: string) {
 }
 
 export async function cancelInvite(userId: string) {
-  await requireRole(['ADMIN', 'SYSTEM_ADMIN']);
+  const currentUser = await requireRole(['ADMIN', 'SYSTEM_ADMIN', 'MANAGER']);
 
   try {
     const adminClient = createAdminClient();
@@ -274,12 +321,21 @@ export async function cancelInvite(userId: string) {
     // Get user details
     const { data: user } = await adminClient
       .from('user_profiles')
-      .select('email_verified')
+      .select('email_verified, created_by')
       .eq('id', userId)
       .single();
 
-    if (user?.email_verified) {
+    if (!user) {
+      return { error: 'User not found' };
+    }
+
+    if (user.email_verified) {
       return { error: 'Cannot cancel invite for verified user' };
+    }
+
+    // MANAGER can only cancel invites they created
+    if (currentUser.role === 'MANAGER' && user.created_by !== currentUser.id) {
+      return { error: 'You can only cancel invites you created' };
     }
 
     // Delete user from auth and profile will cascade delete

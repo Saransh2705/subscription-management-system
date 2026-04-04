@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // API-created customers have created_by = NULL (indicates API source)
     const { data: customer, error: insertError } = await supabase
       .from('customers')
       .insert({
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
         city: city || null,
         country: country || null,
         notes: notes || null,
+        created_by: null, // NULL = created via API
       })
       .select()
       .single();

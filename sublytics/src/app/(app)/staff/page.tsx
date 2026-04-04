@@ -36,7 +36,7 @@ async function PendingInvitesContent() {
 }
 
 export default async function StaffPage() {
-  await requireRole(['SYSTEM_ADMIN']);
+  await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
 
   return (
     <div className="page-container">
