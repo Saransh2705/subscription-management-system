@@ -52,6 +52,7 @@ export async function updateSession(request: NextRequest) {
     '/api/auth/reset-password',
     '/api/auth/magic-link',
     '/api/seed-admin',
+    '/api/v1',
   ];
 
   // Define auth pages that logged-in users shouldn't access

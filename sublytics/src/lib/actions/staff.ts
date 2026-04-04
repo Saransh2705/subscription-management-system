@@ -55,7 +55,7 @@ export async function inviteUser(email: string, fullName: string, role: UserRole
   try {
     const adminClient = createAdminClient();
 
-    // Check if user already exists using admin client
+    // Check if user already exists
     const { data: existingUser } = await adminClient
       .from('user_profiles')
       .select('*')
@@ -71,28 +71,35 @@ export async function inviteUser(email: string, fullName: string, role: UserRole
     let isResend = false;
 
     if (existingUser && !existingUser.email_verified) {
-      // User exists but hasn't verified - allow resending
+      // User exists but hasn't verified - just resend
       userId = existingUser.id;
       isResend = true;
     } else {
-      // Create new user with Supabase Auth Admin API
+      // Create new user with email already confirmed
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
         email,
-        email_confirm: false, // Will confirm via magic link
+        email_confirm: true, // Mark email as confirmed immediately
+        user_metadata: {
+          invited_by: currentUser.id,
+          full_name: fullName,
+        }
       });
 
       if (authError) {
         console.error('Error creating user:', authError);
-        return { error: 'Failed to create user' };
+        return { error: 'Failed to create user. They may already exist.' };
       }
 
       userId = authData.user.id;
+      console.log('✅ Created user with confirmed email:', userId);
     }
 
-    // Update user profile with role and invite tracking
+    // Update or insert user profile with role and invite tracking
     const { error: profileError } = await adminClient
       .from('user_profiles')
-      .update({
+      .upsert({
+        id: userId,
+        email,
         full_name: fullName,
         role,
         requires_password_change: true,
@@ -101,8 +108,7 @@ export async function inviteUser(email: string, fullName: string, role: UserRole
         invited_at: existingUser?.invited_at || new Date().toISOString(),
         invited_by: currentUser.id,
         last_invite_sent_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
+      });
 
     if (profileError) {
       console.error('Error updating user profile:', profileError);
