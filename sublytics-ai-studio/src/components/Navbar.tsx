@@ -1,13 +1,13 @@
 import Link from "next/link";
-import Image from "next/image";
+import { Zap } from "lucide-react";
 
 const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/50">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center glow-button p-1.5">
-            <Image src="/html-logo.svg" alt="Sublytics" width={32} height={32} className="w-full h-full" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center glow-button p-0">
+            <Zap className="w-4 h-4" />
           </div>
           <span className="text-xl font-bold gradient-text">Sublytics</span>
         </Link>

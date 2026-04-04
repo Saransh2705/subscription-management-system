@@ -57,6 +57,62 @@ CREATE TRIGGER set_updated_at_quotations
   FOR EACH ROW 
   EXECUTE FUNCTION handle_updated_at();
 
+-- Enable RLS
+ALTER TABLE public.quotations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quotation_items ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for quotations
+CREATE POLICY "Service role has full access to quotations"
+  ON public.quotations
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role');
+
+CREATE POLICY "Active users can view quotations"
+  ON public.quotations
+  FOR SELECT
+  USING (is_active_user());
+
+CREATE POLICY "Managers and admins can insert quotations"
+  ON public.quotations
+  FOR INSERT
+  WITH CHECK (is_manager_or_admin());
+
+CREATE POLICY "Managers and admins can update quotations"
+  ON public.quotations
+  FOR UPDATE
+  USING (is_manager_or_admin());
+
+CREATE POLICY "Managers and admins can delete quotations"
+  ON public.quotations
+  FOR DELETE
+  USING (is_manager_or_admin());
+
+-- RLS Policies for quotation_items
+CREATE POLICY "Service role has full access to quotation_items"
+  ON public.quotation_items
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role');
+
+CREATE POLICY "Active users can view quotation_items"
+  ON public.quotation_items
+  FOR SELECT
+  USING (is_active_user());
+
+CREATE POLICY "Managers and admins can insert quotation_items"
+  ON public.quotation_items
+  FOR INSERT
+  WITH CHECK (is_manager_or_admin());
+
+CREATE POLICY "Managers and admins can update quotation_items"
+  ON public.quotation_items
+  FOR UPDATE
+  USING (is_manager_or_admin());
+
+CREATE POLICY "Managers and admins can delete quotation_items"
+  ON public.quotation_items
+  FOR DELETE
+  USING (is_manager_or_admin());
+
 -- ============================================================
 -- Migration Complete
 -- ============================================================

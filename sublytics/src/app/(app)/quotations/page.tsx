@@ -12,11 +12,30 @@ export default async function QuotationsPage() {
   }
 
   // Fetch quotations
-  const { data: quotations } = await getQuotations();
+  const { data: quotations, error } = await getQuotations();
+  
+  // Debug logging
+  console.log('Quotations fetch result:', { 
+    count: quotations?.length || 0, 
+    error: error,
+    hasData: !!quotations 
+  });
+
+  // Fetch active products for quotation creation
+  const { data: products } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .order('name');
+
+  console.log('Products fetch result:', { 
+    count: products?.length || 0 
+  });
 
   return (
     <QuotationsClient
       initialQuotations={quotations || []}
+      products={products || []}
     />
   );
 }

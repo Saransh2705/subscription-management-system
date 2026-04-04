@@ -23,9 +23,10 @@ import {
 
 interface QuotationsClientProps {
   initialQuotations: any[];
+  products: any[];
 }
 
-export default function QuotationsClient({ initialQuotations }: QuotationsClientProps) {
+export default function QuotationsClient({ initialQuotations, products }: QuotationsClientProps) {
   const [quotations, setQuotations] = useState(initialQuotations);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

@@ -10,6 +10,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Sublytics - Subscription Management System",
   description: "Comprehensive subscription management system",
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/faviconvg',
+  },
 };
 
 export default function RootLayout({
