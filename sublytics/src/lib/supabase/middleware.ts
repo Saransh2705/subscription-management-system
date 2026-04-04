@@ -49,9 +49,23 @@ export async function updateSession(request: NextRequest) {
     '/api/seed-admin',
   ];
 
+  // Define auth pages that logged-in users shouldn't access
+  const authPages = ['/login', '/forgot-password', '/reset-password'];
+
   const isPublicPath = publicPaths.some(path => 
     request.nextUrl.pathname.startsWith(path)
   );
+
+  const isAuthPage = authPages.some(path =>
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  // Redirect authenticated users away from auth pages
+  if (user && isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
+  }
 
   if (!user && !isPublicPath) {
     // no user, potentially respond by redirecting the user to the login page
