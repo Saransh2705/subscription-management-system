@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { DollarSign, Users, FileText, TrendingUp, ArrowUpRight } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";

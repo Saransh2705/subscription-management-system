@@ -1,12 +1,15 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Outlet } from "react-router-dom";
-import { Search, Bell, User } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-export default function AppLayout() {
+interface AppLayoutProps {
+  children: React.ReactNode;
+}
+
+export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -35,7 +38,7 @@ export default function AppLayout() {
             </div>
           </header>
           <main className="flex-1 overflow-auto">
-            <Outlet />
+            {children}
           </main>
         </div>
       </div>

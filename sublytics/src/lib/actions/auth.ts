@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { sendMagicLinkEmail } from '@/lib/email/resend';
 
@@ -11,9 +12,10 @@ export async function signInWithPassword(email: string, password: string) {
     }
 
     const supabase = await createClient();
+    const adminClient = createAdminClient();
 
-    // Check if user exists and is active
-    const { data: profile } = await supabase
+    // Check if user exists and is active using admin client (bypasses RLS)
+    const { data: profile } = await adminClient
       .from('user_profiles')
       .select('*')
       .eq('email', email)
@@ -52,9 +54,10 @@ export async function sendMagicLink(email: string) {
     }
 
     const supabase = await createClient();
+    const adminClient = createAdminClient();
 
-    // Check if user exists and is active
-    const { data: profile } = await supabase
+    // Check if user exists and is active using admin client (bypasses RLS)
+    const { data: profile } = await adminClient
       .from('user_profiles')
       .select('*')
       .eq('email', email)

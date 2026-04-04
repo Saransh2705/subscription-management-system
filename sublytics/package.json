@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "seed": "bun run src/lib/auth/seed-script.ts",
+    "postbuild": "bun run seed"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -52,9 +52,9 @@
     "lucide-react": "^0.462.0",
     "next": "^15.1.6",
     "next-themes": "^0.3.0",
-    "react": "^18.3.1",
+    "react": "^19.0.0",
     "react-day-picker": "^8.10.1",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.0.0",
     "react-hook-form": "^7.61.1",
     "react-resizable-panels": "^2.1.9",
     "recharts": "^2.15.4",
@@ -66,20 +66,15 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
     "@tailwindcss/typography": "^0.5.16",
-    "@testing-library/jest-dom": "^6.6.0",
-    "@testing-library/react": "^16.0.0",
     "@types/node": "^22.16.5",
-    "@types/react": "^18.3.23",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",
     "eslint-config-next": "^15.1.6",
-    "jsdom": "^20.0.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "typescript": "^5.8.3"
   }
 }

@@ -127,35 +127,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-                    <NavLink
-                      to={item.url}
-                      className="transition-colors"
-                      activeClassName="bg-accent text-accent-foreground font-medium"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="p-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <NavLink to="/login" className="text-muted-foreground hover:text-destructive transition-colors">
-                <LogOut className="h-4 w-4" />
-                {!collapsed && <span>Logout</span>}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
-  );
-}
