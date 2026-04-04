@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { AuthBackground, AuthBranding } from "@/components/AuthBackground";
 import { Eye, EyeOff, Lock, ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SetPasswordPage() {
+function SetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -126,25 +126,16 @@ export default function SetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
-      <AuthBackground />
-      <div className="absolute top-4 right-4 z-20">
-        <ThemeToggle />
-      </div>
-
-      <div className="w-full max-w-[400px] relative z-10">
-        <AuthBranding />
-
-        {validating ? (
-          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
-            <CardContent className="p-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-              <h3 className="text-lg font-semibold mb-2">Validating invitation...</h3>
-              <p className="text-sm text-muted-foreground">Please wait</p>
-            </CardContent>
-          </Card>
-        ) : (
-
+    <>
+      {validating ? (
+        <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <h3 className="text-lg font-semibold mb-2">Validating invitation...</h3>
+            <p className="text-sm text-muted-foreground">Please wait</p>
+          </CardContent>
+        </Card>
+      ) : (
         <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-2 inline-flex items-center justify-center w-11 h-11 rounded-full bg-primary/10">
@@ -238,7 +229,30 @@ export default function SetPasswordPage() {
             </form>
           </CardContent>
         </Card>
-        )}
+      )}
+    </>
+  );
+}
+
+export default function SetPasswordPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
+      <AuthBackground />
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-[400px] relative z-10">
+        <AuthBranding />
+        <Suspense fallback={
+          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80">
+            <CardContent className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            </CardContent>
+          </Card>
+        }>
+          <SetPasswordForm />
+        </Suspense>
       </div>
     </div>
   );

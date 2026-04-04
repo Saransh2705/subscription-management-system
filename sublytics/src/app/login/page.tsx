@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { Lock, Mail, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -129,32 +129,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
-      <AuthBackground />
-
-      {/* Theme toggle */}
-      <div className="absolute top-4 right-4 z-20">
-        <ThemeToggle />
-      </div>
-
-      <div className="w-full max-w-[400px] relative z-10">
-        <AuthBranding />
-
-        {processingMagicLink ? (
-          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
-            <CardContent className="p-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-              <h3 className="text-lg font-semibold mb-2">Authenticating...</h3>
-              <p className="text-sm text-muted-foreground">Please wait while we sign you in</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-xl">Welcome back</CardTitle>
-              <CardDescription>Sign in to your account to continue</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
+    <>
+      {processingMagicLink ? (
+        <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <h3 className="text-lg font-semibold mb-2">Authenticating...</h3>
+            <p className="text-sm text-muted-foreground">Please wait while we sign you in</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80 animate-fade-in-up-delay">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-xl">Welcome back</CardTitle>
+            <CardDescription>Sign in to your account to continue</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
@@ -238,7 +228,32 @@ export default function LoginPage() {
             </p>
           </CardContent>
         </Card>
-        )}
+      )}
+    </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-background">
+      <AuthBackground />
+
+      {/* Theme toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-[400px] relative z-10">
+        <AuthBranding />
+        <Suspense fallback={
+          <Card className="border border-border/50 shadow-2xl shadow-black/5 dark:shadow-black/30 backdrop-blur-md bg-card/80">
+            <CardContent className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            </CardContent>
+          </Card>
+        }>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   );
