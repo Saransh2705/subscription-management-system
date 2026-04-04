@@ -2,6 +2,73 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { authenticateRequest } from '@/lib/v1/auth.helper';
 
+/**
+ * @swagger
+ * /api/v1/customers:
+ *   post:
+ *     summary: Create a new customer
+ *     description: Create a new customer record
+ *     tags:
+ *       - Customers
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Customer name
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Customer email address
+ *               phone:
+ *                 type: string
+ *                 description: Customer phone number
+ *               company:
+ *                 type: string
+ *                 description: Company name
+ *               address:
+ *                 type: string
+ *                 description: Street address
+ *               city:
+ *                 type: string
+ *                 description: City
+ *               country:
+ *                 type: string
+ *                 description: Country
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes
+ *     responses:
+ *       201:
+ *         description: Customer created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Customer'
+ *       400:
+ *         $ref: '#/components/responses/BadRequestError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       409:
+ *         description: Customer with this email already exists
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateRequest(request);

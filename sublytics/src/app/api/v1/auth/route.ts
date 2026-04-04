@@ -2,6 +2,59 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateAuthToken } from '@/lib/v1/auth.helper';
 
+/**
+ * @swagger
+ * /api/v1/auth:
+ *   post:
+ *     summary: Authenticate and get access token
+ *     description: Exchange company credentials for a JWT access token
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - company_id
+ *               - company_secret
+ *             properties:
+ *               company_id:
+ *                 type: string
+ *                 description: Your company ID
+ *               company_secret:
+ *                 type: string
+ *                 description: Your company secret key
+ *     responses:
+ *       200:
+ *         description: Authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 token:
+ *                   type: string
+ *                   description: JWT access token
+ *                 expires_in:
+ *                   type: string
+ *                   example: '30m'
+ *                 token_type:
+ *                   type: string
+ *                   example: 'Bearer'
+ *       400:
+ *         $ref: '#/components/responses/BadRequestError'
+ *       401:
+ *         description: Invalid credentials
+ *       403:
+ *         description: API key is inactive
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

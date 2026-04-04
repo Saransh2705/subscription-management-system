@@ -20,9 +20,9 @@ export async function getUsers() {
     .select('*')
     .eq('email_verified', true);
   
-  // If MANAGER, only show users they created
+  // If MANAGER, only show users they invited
   if (currentUser.role === 'MANAGER') {
-    query = query.eq('created_by', currentUser.id);
+    query = query.eq('invited_by', currentUser.id);
   }
   
   const { data, error } = await query.order('created_at', { ascending: false });
@@ -48,7 +48,7 @@ export async function getPendingInvites() {
   
   // If MANAGER, only show invites they created
   if (currentUser.role === 'MANAGER') {
-    query = query.eq('created_by', currentUser.id);
+    query = query.eq('invited_by', currentUser.id);
   }
   
   const { data, error } = await query.order('invited_at', { ascending: false });

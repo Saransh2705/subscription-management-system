@@ -29,14 +29,19 @@ import { Textarea } from "@/components/ui/textarea";
 
 const ITEMS_PER_PAGE = 50;
 
-export default function CustomersPageClient() {
-  const [customers, setCustomers] = useState<CustomerWithCreator[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+interface CustomersPageClientProps {
+  initialCustomers: CustomerWithCreator[];
+  initialTotal: number;
+}
+
+export default function CustomersPageClient({ initialCustomers, initialTotal }: CustomersPageClientProps) {
+  const [customers, setCustomers] = useState<CustomerWithCreator[]>(initialCustomers);
+  const [total, setTotal] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(initialCustomers.length === ITEMS_PER_PAGE);
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerWithCreator | null>(null);

@@ -18,9 +18,7 @@ export interface SubscriptionPlan {
   id: string;
   name: string;
   description: string | null;
-  price: number;
-  currency: string;
-  billing_cycle: 'monthly' | 'quarterly' | 'semi_annual' | 'annual';
+  discount_percentage: number; // 0-100, discount applied to products
   trial_days: number;
   features: any[];
   is_active: boolean;

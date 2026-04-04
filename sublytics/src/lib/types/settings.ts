@@ -15,6 +15,12 @@ export interface SystemSettings {
   invoice_footer_text: string | null;
   invoice_notes: string | null;
   tax_id: string | null;
+  payment_success_url: string | null;
+  payment_failure_url: string | null;
+  payment_gateway_enabled: boolean;
+  payment_gateway_name: string | null;
+  payment_gateway_api_key: string | null;
+  payment_gateway_secret_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +56,12 @@ export interface UpdateSystemSettingsInput {
   invoice_footer_text?: string | null;
   invoice_notes?: string | null;
   tax_id?: string | null;
+  payment_success_url?: string | null;
+  payment_failure_url?: string | null;
+  payment_gateway_enabled?: boolean;
+  payment_gateway_name?: string | null;
+  payment_gateway_api_key?: string | null;
+  payment_gateway_secret_key?: string | null;
 }
 
 export interface CreateCurrencyROEInput {
