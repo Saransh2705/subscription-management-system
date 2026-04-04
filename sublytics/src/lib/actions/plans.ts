@@ -4,6 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/rbac";
 import type { SubscriptionPlan, SubscriptionPlanProduct } from "@/lib/types/product";
 
+// Helper to serialize plan data for client
+function serializePlan(plan: any): any {
+  return {
+    ...plan,
+    created_at: plan.created_at?.toISOString?.() || plan.created_at,
+    updated_at: plan.updated_at?.toISOString?.() || plan.updated_at,
+  };
+}
+
 /**
  * Get all subscription plans with their calculated pricing
  */
@@ -187,9 +196,6 @@ export async function removeProductFromPlan(id: string): Promise<{ success: bool
 export async function createPlan(input: {
   name: string;
   description?: string;
-  price: number;
-  currency?: string;
-  billing_cycle: 'monthly' | 'quarterly' | 'semi_annual' | 'annual';
   trial_days?: number;
   features?: string[];
   discount_percentage?: number;
@@ -198,8 +204,8 @@ export async function createPlan(input: {
   const supabase = await createClient();
 
   // Validate required fields
-  if (!input.name || input.price < 0) {
-    return { success: false, error: "Name and valid price are required" };
+  if (!input.name) {
+    return { success: false, error: "Name is required" };
   }
 
   const { data, error } = await supabase
@@ -207,9 +213,6 @@ export async function createPlan(input: {
     .insert({
       name: input.name,
       description: input.description || null,
-      price: input.price,
-      currency: input.currency || 'USD',
-      billing_cycle: input.billing_cycle,
       trial_days: input.trial_days || 0,
       features: input.features || [],
       discount_percentage: input.discount_percentage || 0,
@@ -221,10 +224,10 @@ export async function createPlan(input: {
 
   if (error) {
     console.error("Error creating plan:", error);
-    return { success: false, error: "Failed to create plan" };
+    return { success: false, error: error.message || "Failed to create plan" };
   }
 
-  return { success: true, data };
+  return { success: true, data: serializePlan(data) };
 }
 
 /**

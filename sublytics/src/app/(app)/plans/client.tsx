@@ -49,9 +49,8 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
   // Create plan form state
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanDescription, setNewPlanDescription] = useState("");
-  const [newPlanPrice, setNewPlanPrice] = useState("");
-  const [newPlanBillingCycle, setNewPlanBillingCycle] = useState<'monthly' | 'quarterly' | 'semi_annual' | 'annual'>('monthly');
   const [newPlanTrialDays, setNewPlanTrialDays] = useState("");
+  const [newPlanDiscountPercent, setNewPlanDiscountPercent] = useState("");
 
   const { toast } = useToast();
 
@@ -201,20 +200,20 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
   };
 
   const handleCreatePlan = async () => {
-    if (!newPlanName || !newPlanPrice) {
+    if (!newPlanName) {
       toast({
         title: "Validation Error",
-        description: "Plan name and price are required",
+        description: "Plan name is required",
         variant: "destructive",
       });
       return;
     }
 
-    const price = parseFloat(newPlanPrice);
-    if (isNaN(price) || price < 0) {
+    const discountPercent = newPlanDiscountPercent ? parseFloat(newPlanDiscountPercent) : 0;
+    if (discountPercent < 0 || discountPercent > 100) {
       toast({
         title: "Validation Error",
-        description: "Price must be a valid positive number",
+        description: "Discount must be between 0 and 100",
         variant: "destructive",
       });
       return;
@@ -224,9 +223,8 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
     const result = await createPlan({
       name: newPlanName,
       description: newPlanDescription || undefined,
-      price,
-      billing_cycle: newPlanBillingCycle,
       trial_days: newPlanTrialDays ? parseInt(newPlanTrialDays) : 0,
+      discount_percentage: discountPercent,
     });
 
     if (result.success) {
@@ -237,9 +235,8 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
       setCreateDialogOpen(false);
       setNewPlanName("");
       setNewPlanDescription("");
-      setNewPlanPrice("");
       setNewPlanTrialDays("");
-      setNewPlanBillingCycle('monthly');
+      setNewPlanDiscountPercent("");
       window.location.reload();
     } else {
       toast({
@@ -401,6 +398,26 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
                     Delete
                   </Button>
                 </div>
+
+                {/* Features */}
+                {plan.features && plan.features.length > 0 && (
+                  <div className="pt-3 border-t">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Features</div>
+                    <ul className="space-y-1">
+                      {plan.features.slice(0, 3).map((feature: string, idx: number) => (
+                        <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                      {plan.features.length > 3 && (
+                        <li className="text-xs text-muted-foreground">
+                          +{plan.features.length - 3} more
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -618,18 +635,6 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="planPrice">Base Price (USD) *</Label>
-                <Input 
-                  id="planPrice"
-                  type="number" 
-                  min="0"
-                  step="0.01"
-                  value={newPlanPrice} 
-                  onChange={(e) => setNewPlanPrice(e.target.value)} 
-                  placeholder="99.00" 
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="trialDays">Trial Days</Label>
                 <Input 
                   id="trialDays"
@@ -640,20 +645,22 @@ export default function PlansPageClient({ initialPlans }: PlansPageClientProps) 
                   placeholder="0" 
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="discountPercent">Discount % (Optional)</Label>
+                <Input 
+                  id="discountPercent"
+                  type="number" 
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={newPlanDiscountPercent} 
+                  onChange={(e) => setNewPlanDiscountPercent(e.target.value)} 
+                  placeholder="0" 
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="billingCycle">Billing Cycle *</Label>
-              <Select value={newPlanBillingCycle} onValueChange={(value: any) => setNewPlanBillingCycle(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="semi_annual">Semi-Annual</SelectItem>
-                  <SelectItem value="annual">Annual</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="text-sm text-muted-foreground mt-2">
+              <p>💡 After creating the plan, add products from the product catalog. The final price will be: product_price × (1 - discount%/100)</p>
             </div>
           </div>
           <DialogFooter>

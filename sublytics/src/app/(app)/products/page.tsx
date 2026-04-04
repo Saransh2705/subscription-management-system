@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -21,11 +22,24 @@ import {
 } from "@/lib/actions/products";
 import type { Product } from "@/lib/types/product";
 
+// Exchange rates to INR (system currency)
+const EXCHANGE_RATES: Record<string, { rate: number; symbol: string }> = {
+  INR: { rate: 1, symbol: '₹' },
+  USD: { rate: 83.12, symbol: '$' },
+  EUR: { rate: 90.45, symbol: '€' },
+  GBP: { rate: 105.23, symbol: '£' },
+  AED: { rate: 22.63, symbol: 'د.إ' },
+  SAR: { rate: 22.16, symbol: '﷼' },
+  SGD: { rate: 61.78, symbol: 'S$' },
+  AUD: { rate: 54.32, symbol: 'A$' },
+  CAD: { rate: 61.45, symbol: 'C$' },
+};
+
 interface ProductFormData {
   name: string;
   description: string;
-  sku: string;
-  unit_price: string;
+  entered_price: string; // Price in selected currency
+  unit_price: string; // Converted price in INR
   tax_percent: string;
   currency: string;
 }
@@ -33,10 +47,10 @@ interface ProductFormData {
 const initialFormState: ProductFormData = {
   name: "",
   description: "",
-  sku: "",
+  entered_price: "",
   unit_price: "",
   tax_percent: "0",
-  currency: "USD",
+  currency: "INR",
 };
 
 export default function ProductsPage() {
@@ -67,16 +81,43 @@ export default function ProductsPage() {
     setLoading(false);
   };
 
+  // Convert price to system currency (INR)
+  const convertToSystemCurrency = (price: string, fromCurrency: string): string => {
+    if (!price || isNaN(parseFloat(price))) return "0";
+    const priceNum = parseFloat(price);
+    const rate = EXCHANGE_RATES[fromCurrency]?.rate || 1;
+    return (priceNum * rate).toFixed(2);
+  };
+
+  // Update price when currency or entered price changes
+  const handlePriceChange = (enteredPrice: string, currency: string) => {
+    const convertedPrice = convertToSystemCurrency(enteredPrice, currency);
+    setForm({ ...form, entered_price: enteredPrice, unit_price: convertedPrice, currency });
+  };
+
   const handleOpen = (product?: Product) => {
     if (product) {
       setEditing(product);
+      // When editing, show the stored INR price
+      // For INR, entered_price = unit_price
+      // For other currencies, reverse calculate if needed
+      const currency = product.currency || 'INR';
+      const inrPrice = product.unit_price.toString();
+      let enteredPrice = inrPrice;
+      
+      // If currency is not INR, reverse calculate
+      if (currency !== 'INR') {
+        const rate = EXCHANGE_RATES[currency]?.rate || 1;
+        enteredPrice = (product.unit_price / rate).toFixed(2);
+      }
+      
       setForm({
         name: product.name,
         description: product.description || "",
-        sku: product.sku || "",
-        unit_price: product.unit_price.toString(),
+        entered_price: enteredPrice,
+        unit_price: inrPrice,
         tax_percent: product.tax_percent.toString(),
-        currency: product.currency,
+        currency: currency,
       });
     } else {
       setEditing(null);
@@ -86,7 +127,7 @@ export default function ProductsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.unit_price) {
+    if (!form.name || !form.entered_price) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -101,10 +142,9 @@ export default function ProductsPage() {
       const productData = {
         name: form.name,
         description: form.description || undefined,
-        sku: form.sku || undefined,
-        unit_price: parseFloat(form.unit_price),
+        unit_price: parseFloat(form.unit_price), // Converted INR price
         tax_percent: parseFloat(form.tax_percent) || 0,
-        currency: form.currency,
+        currency: form.currency, // Original currency for reference
       };
 
       let result;
@@ -218,7 +258,14 @@ export default function ProductsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{product.sku || '-'}</TableCell>
-                    <TableCell className="font-medium">${product.unit_price.toFixed(2)} {product.currency}</TableCell>
+                    <TableCell className="font-medium">
+                      ₹{product.unit_price.toFixed(2)}
+                      {product.currency !== 'INR' && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({EXCHANGE_RATES[product.currency]?.symbol || ''}{(product.unit_price / (EXCHANGE_RATES[product.currency]?.rate || 1)).toFixed(2)} {product.currency})
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{product.tax_percent}%</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -284,26 +331,62 @@ export default function ProductsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input 
-                id="sku"
-                value={form.sku} 
-                onChange={(e) => setForm({ ...form, sku: e.target.value })} 
-                placeholder="e.g. PROD-001" 
-              />
+              <Label htmlFor="currency">Currency *</Label>
+              <Select 
+                value={form.currency} 
+                onValueChange={(value) => handlePriceChange(form.entered_price, value)}
+              >
+                <SelectTrigger id="currency">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(EXCHANGE_RATES).map(([code, { symbol }]) => (
+                    <SelectItem key={code} value={code}>
+                      {symbol} {code} {code !== 'INR' && `(1 ${code} = ₹${EXCHANGE_RATES[code].rate})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select the currency for entering the price
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Base Price *</Label>
-                <Input 
-                  id="price"
-                  type="number" 
-                  step="0.01"
-                  value={form.unit_price} 
-                  onChange={(e) => setForm({ ...form, unit_price: e.target.value })} 
-                  placeholder="29.99" 
-                />
+                <Label htmlFor="price">Price in {form.currency} *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {EXCHANGE_RATES[form.currency]?.symbol || ''}
+                  </span>
+                  <Input 
+                    id="price"
+                    type="number" 
+                    step="0.01"
+                    value={form.entered_price} 
+                    onChange={(e) => handlePriceChange(e.target.value, form.currency)} 
+                    placeholder="29.99"
+                    className="pl-8"
+                  />
+                </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="converted">System Price (INR)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                  <Input 
+                    id="converted"
+                    type="text" 
+                    value={form.unit_price || '0.00'} 
+                    disabled
+                    className="pl-8 bg-muted"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Auto-converted to INR
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="tax">Tax %</Label>
                 <Input 
@@ -317,15 +400,6 @@ export default function ProductsPage() {
                   placeholder="18" 
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Input 
-                id="currency"
-                value={form.currency} 
-                onChange={(e) => setForm({ ...form, currency: e.target.value })} 
-                placeholder="USD" 
-              />
             </div>
           </div>
           <DialogFooter>

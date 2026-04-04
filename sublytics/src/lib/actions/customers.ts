@@ -4,6 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/auth/rbac";
 import type { Customer, CustomerWithCreator, CreateCustomerInput, UpdateCustomerInput } from "@/lib/types/customer";
 
+// Helper to serialize customer data for client
+function serializeCustomer(customer: any): Customer {
+  return {
+    ...customer,
+    created_at: customer.created_at?.toISOString?.() || customer.created_at,
+    updated_at: customer.updated_at?.toISOString?.() || customer.updated_at,
+  };
+}
+
 /**
  * Get all customers with optional search and pagination
  * Supports search by: ID, name, email
@@ -119,50 +128,56 @@ export async function getCustomer(id: string): Promise<CustomerWithCreator | nul
  * Sets created_by to current user (not API)
  */
 export async function createCustomer(input: CreateCustomerInput): Promise<{ success: boolean; customer?: Customer; error?: string }> {
-  const user = await requireAuth();
-  const supabase = await createClient();
+  try {
+    const user = await requireAuth();
+    const supabase = await createClient();
 
-  // Validate required fields
-  if (!input.name?.trim()) {
-    return { success: false, error: "Customer name is required" };
+    // Validate required fields
+    if (!input.name?.trim()) {
+      return { success: false, error: "Customer name is required" };
+    }
+    if (!input.email?.trim()) {
+      return { success: false, error: "Customer email is required" };
+    }
+
+    // Check if email already exists
+    const { data: existing } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("email", input.email.trim())
+      .single();
+
+    if (existing) {
+      return { success: false, error: "A customer with this email already exists" };
+    }
+
+    const { data, error } = await supabase
+      .from("customers")
+      .insert({
+        name: input.name.trim(),
+        email: input.email.trim().toLowerCase(),
+        phone: input.phone?.trim() || null,
+        company: input.company?.trim() || null,
+        address: input.address?.trim() || null,
+        city: input.city?.trim() || null,
+        country: input.country?.trim() || null,
+        notes: input.notes?.trim() || null,
+        created_by: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating customer:", error);
+      return { success: false, error: error.message || "Failed to create customer" };
+    }
+
+    console.log("Customer created successfully:", data?.id);
+    return { success: true, customer: serializeCustomer(data) };
+  } catch (error: any) {
+    console.error("Unexpected error in createCustomer:", error);
+    return { success: false, error: error?.message || "An unexpected error occurred" };
   }
-  if (!input.email?.trim()) {
-    return { success: false, error: "Customer email is required" };
-  }
-
-  // Check if email already exists
-  const { data: existing } = await supabase
-    .from("customers")
-    .select("id")
-    .eq("email", input.email.trim())
-    .single();
-
-  if (existing) {
-    return { success: false, error: "A customer with this email already exists" };
-  }
-
-  const { data, error } = await supabase
-    .from("customers")
-    .insert({
-      name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      phone: input.phone?.trim() || null,
-      company: input.company?.trim() || null,
-      address: input.address?.trim() || null,
-      city: input.city?.trim() || null,
-      country: input.country?.trim() || null,
-      notes: input.notes?.trim() || null,
-      created_by: user.id, // User-created (not API)
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating customer:", error);
-    return { success: false, error: "Failed to create customer" };
-  }
-
-  return { success: true, customer: data };
 }
 
 /**
@@ -209,7 +224,7 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
     return { success: false, error: "Failed to update customer" };
   }
 
-  return { success: true, customer: data };
+  return { success: true, customer: serializeCustomer(data) };
 }
 
 /**

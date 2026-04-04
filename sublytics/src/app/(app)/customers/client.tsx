@@ -185,8 +185,20 @@ export default function CustomersPageClient({ initialCustomers, initialTotal }: 
           });
         }
       } else {
-        // Create new customer
-        const result = await createCustomer(formData);
+        // Create new customer - ensure clean data
+        const cleanData: CreateCustomerInput = {
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone?.trim() || undefined,
+          company: formData.company?.trim() || undefined,
+          address: formData.address?.trim() || undefined,
+          city: formData.city?.trim() || undefined,
+          country: formData.country?.trim() || undefined,
+          notes: formData.notes?.trim() || undefined,
+        };
+        
+        console.log("Creating customer with data:", cleanData);
+        const result = await createCustomer(cleanData);
         
         if (result.success) {
           toast({

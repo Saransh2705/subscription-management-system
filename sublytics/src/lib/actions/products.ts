@@ -19,6 +19,15 @@ const PRODUCTS_TAG = 'products';
 const PRODUCTS_WITH_TIERS_TAG = 'products-with-tiers';
 const PLAN_PRODUCTS_TAG = 'plan-products';
 
+// Helper to serialize product data for client
+function serializeProduct(product: any): Product {
+  return {
+    ...product,
+    created_at: product.created_at?.toISOString?.() || product.created_at,
+    updated_at: product.updated_at?.toISOString?.() || product.updated_at,
+  };
+}
+
 export async function getProducts() {
   try {
     const supabase = await createClient();
@@ -116,7 +125,7 @@ export async function createProduct(input: CreateProductInput) {
     revalidateTag(PRODUCTS_TAG);
     revalidateTag(PRODUCTS_WITH_TIERS_TAG);
     revalidatePath('/products');
-    return { success: true, data: data as Product };
+    return { success: true, data: serializeProduct(data) };
   } catch (error) {
     console.error('Error in createProduct:', error);
     return { success: false, error: 'Failed to create product' };
@@ -142,7 +151,7 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
     revalidateTag(PRODUCTS_TAG);
     revalidateTag(PRODUCTS_WITH_TIERS_TAG);
     revalidatePath('/products');
-    return { success: true, data: data as Product };
+    return { success: true, data: serializeProduct(data) };
   } catch (error) {
     console.error('Error in updateProduct:', error);
     return { success: false, error: 'Failed to update product' };
