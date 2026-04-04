@@ -15,6 +15,7 @@ import {
   UserCog,
   ChevronsUpDown,
   Shield,
+  DollarSign,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -45,18 +46,19 @@ import { getUserInitials } from "@/components/AppHeader";
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
-  { title: "Plans", url: "/plans", icon: Layers },
+  { title: "Subscription Plans", url: "/plans", icon: Layers },
   { title: "Customers", url: "/customers", icon: Users },
-  { title: "Subscriptions", url: "/subscriptions", icon: RefreshCw },
+  { title: "Subscribers", url: "/subscriptions", icon: RefreshCw },
   { title: "Invoices", url: "/invoices", icon: FileText },
   { title: "Quotations", url: "/quotations", icon: FileCheck },
 ];
 
 const secondaryNav = [
-  { title: "Staff", url: "/staff", icon: UserCog },
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "API & Docs", url: "/api-docs", icon: Code },
-  { title: "Email Templates", url: "/email-templates", icon: Mail },
+  { title: "Staff", url: "/staff", icon: UserCog, systemAdminOnly: true },
+  { title: "Settings", url: "/settings", icon: Settings, systemAdminOnly: true },
+  { title: "ROE Management", url: "/roe-management", icon: DollarSign, systemAdminOnly: true },
+  { title: "API & Docs", url: "/api-docs", icon: Code, systemAdminOnly: true },
+  { title: "Email Templates", url: "/email-templates", icon: Mail, systemAdminOnly: true },
 ];
 
 interface AppSidebarProps {
@@ -111,7 +113,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {secondaryNav.map((item) => (
+              {secondaryNav
+                .filter((item) => !item.systemAdminOnly || user.role === 'SYSTEM_ADMIN')
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <Link href={item.url} className="transition-colors">

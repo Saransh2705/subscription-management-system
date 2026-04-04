@@ -5,6 +5,7 @@ import { getUsers, getPendingInvites } from "@/lib/actions/staff";
 import { StaffTableClient, StaffTableSkeleton, PendingInvitesTable } from "@/components/StaffTable";
 import { redirect } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
+import { requireRole } from "@/lib/auth/rbac";
 
 async function StaffContent() {
   const result = await getUsers();
@@ -35,6 +36,8 @@ async function PendingInvitesContent() {
 }
 
 export default async function StaffPage() {
+  await requireRole(['SYSTEM_ADMIN']);
+
   return (
     <div className="page-container">
       <div className="page-header">

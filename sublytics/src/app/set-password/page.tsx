@@ -27,14 +27,14 @@ export default function SetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Validate token on mount if present
+  // Validate token on mount
   useEffect(() => {
-    if (token) {
-      validateToken();
-    } else {
-      // No token - check if user is already authenticated
-      checkAuth();
+    if (!token) {
+      toast.error('Missing invitation token. Please use the link from your email.');
+      router.push('/login');
+      return;
     }
+    validateToken();
   }, [token]);
 
   const validateToken = async () => {
@@ -50,23 +50,6 @@ export default function SetPasswordPage() {
     
     console.log('✅ Token valid for:', result.data?.email);
     setUserEmail(result.data!.email);
-    
-    // Sign in the user with their existing Supabase auth (created during invite)
-    // This establishes a session so they can set their password
-    setValidating(false);
-  };
-
-  const checkAuth = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      toast.error('Please use the invitation link from your email');
-      router.push('/login');
-      return;
-    }
-    
-    setUserEmail(user.email || null);
     setValidating(false);
   };
 
@@ -95,15 +78,47 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      const result = await updatePassword(password);
+      // Pass the token to updatePassword for new user setup
+      const result = await updatePassword(password, token || undefined);
 
       if (result.success) {
-        toast.success("Password set successfully! Welcome aboard!");
+        console.log('✅ Password set successfully, userId:', result.userId);
+        toast.success("Welcome aboard! Signing you in...");
+        
+        // Wait a moment for the password update to fully propagate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Now sign in with the new password
+        if (token && userEmail) {
+          const supabase = createClient();
+          
+          console.log('🔐 Signing in with new password...');
+          const { data, error: signInError } = await supabase.auth.signInWithPassword({
+            email: userEmail,
+            password: password,
+          });
+          
+          if (signInError) {
+            console.error('❌ Sign in error:', signInError);
+            toast.error('Password set successfully! Please login with your new password.');
+            router.push('/login');
+            return;
+          }
+          
+          console.log('✅ Signed in successfully');
+          
+          // Navigate to dashboard
+          window.location.href = '/dashboard';
+          return;
+        }
+        
+        // Fallback
         router.push("/dashboard");
       } else {
         toast.error(result.error || "Failed to set password");
       }
     } catch (error) {
+      console.error('Error in handleSubmit:', error);
       toast.error("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -214,7 +229,7 @@ export default function SetPasswordPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Setting up...
+                    Setting up your account...
                   </>
                 ) : (
                   "Set Password & Continue"
