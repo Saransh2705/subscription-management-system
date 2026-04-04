@@ -18,6 +18,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sidebar,
@@ -84,8 +85,8 @@ export function AppSidebar({ user }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className={collapsed ? "p-4 flex items-center justify-center" : "p-4 flex items-center gap-2.5"}>
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <span className="text-primary-foreground font-bold text-sm">S</span>
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0 p-1.5">
+          <Image src="/html-logo.svg" alt="Sublytics" width={32} height={32} className="w-full h-full brightness-0 invert" />
         </div>
         {!collapsed && (
           <span className="font-semibold text-foreground text-lg tracking-tight">

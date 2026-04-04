@@ -11,12 +11,6 @@ export async function getQuotations() {
     .from('quotations')
     .select(`
       *,
-      customer:customers (
-        id,
-        name,
-        email,
-        company
-      ),
       quotation_items (
         id,
         description,
@@ -25,6 +19,7 @@ export async function getQuotations() {
         total,
         product:products (
           name,
+          description,
           sku
         )
       )
@@ -46,13 +41,6 @@ export async function getQuotationById(id: string) {
     .from('quotations')
     .select(`
       *,
-      customer:customers (
-        id,
-        name,
-        email,
-        company,
-        phone
-      ),
       quotation_items (
         id,
         description,
@@ -61,6 +49,7 @@ export async function getQuotationById(id: string) {
         total,
         product:products (
           name,
+          description,
           sku
         )
       )
@@ -77,8 +66,7 @@ export async function getQuotationById(id: string) {
 }
 
 export async function createQuotation(input: {
-  customer_id: string;
-  plan_id?: string;
+  title: string;
   valid_until: string;
   notes?: string;
   items: Array<{
@@ -96,23 +84,21 @@ export async function createQuotation(input: {
     .from('quotations')
     .select('*', { count: 'exact', head: true });
   
-  const quotationNumber = `QUO-${String((count || 0) + 1).padStart(6, '0')}`;
+  const quotationNumber = `QUO-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(4, '0')}`;
 
   // Calculate totals
   let subtotal = 0;
-  const items = input.items.map(item => {
-    const total = item.quantity * item.unit_price;
-    subtotal += total;
+  const processedItems = input.items.map(item => {
+    const itemTotal = item.quantity * item.unit_price;
+    subtotal += itemTotal;
     return {
       ...item,
-      total,
+      total: itemTotal,
     };
   });
 
-  const taxPercent = 0; // Can be configured
-  const taxAmount = (subtotal * taxPercent) / 100;
-  const discountPercent = 0;
-  const discountAmount = (subtotal * discountPercent) / 100;
+  const taxAmount = subtotal * 0.18; // 18% tax
+  const discountAmount = 0;
   const total = subtotal + taxAmount - discountAmount;
 
   // Create quotation
@@ -120,16 +106,16 @@ export async function createQuotation(input: {
     .from('quotations')
     .insert({
       quotation_number: quotationNumber,
-      customer_id: input.customer_id,
-      status: 'draft',
+      title: input.title,
       valid_until: input.valid_until,
+      notes: input.notes,
       subtotal,
-      tax_percent: taxPercent,
+      tax_percent: 18,
       tax_amount: taxAmount,
-      discount_percent: discountPercent,
+      discount_percent: 0,
       discount_amount: discountAmount,
       total,
-      notes: input.notes,
+      currency: 'USD',
       created_by: user.id,
     })
     .select()
@@ -137,13 +123,13 @@ export async function createQuotation(input: {
 
   if (quotationError) {
     console.error('Error creating quotation:', quotationError);
-    return { success: false, error: 'Failed to create quotation' };
+    return { success: false, error: quotationError.message };
   }
 
   // Create quotation items
-  const quotationItems = items.map(item => ({
+  const itemsToInsert = processedItems.map(item => ({
     quotation_id: quotation.id,
-    product_id: item.product_id || null,
+    product_id: item.product_id,
     description: item.description,
     quantity: item.quantity,
     unit_price: item.unit_price,
@@ -152,13 +138,13 @@ export async function createQuotation(input: {
 
   const { error: itemsError } = await supabase
     .from('quotation_items')
-    .insert(quotationItems);
+    .insert(itemsToInsert);
 
   if (itemsError) {
     console.error('Error creating quotation items:', itemsError);
     // Rollback quotation
     await supabase.from('quotations').delete().eq('id', quotation.id);
-    return { success: false, error: 'Failed to create quotation items' };
+    return { success: false, error: itemsError.message };
   }
 
   revalidatePath('/quotations');
@@ -168,11 +154,10 @@ export async function createQuotation(input: {
 export async function updateQuotation(
   id: string,
   input: {
+    title?: string;
     valid_until?: string;
     notes?: string;
-    status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
     items?: Array<{
-      id?: string;
       product_id?: string;
       description: string;
       quantity: number;
@@ -180,82 +165,60 @@ export async function updateQuotation(
     }>;
   }
 ) {
-  await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
+  const user = await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
   const supabase = await createClient();
 
-  // If items are provided, update totals
+  const updateData: any = {};
+  
+  if (input.title) updateData.title = input.title;
+  if (input.valid_until) updateData.valid_until = input.valid_until;
+  if (input.notes !== undefined) updateData.notes = input.notes;
+
+  // If items are provided, recalculate totals
   if (input.items) {
     let subtotal = 0;
-    const items = input.items.map(item => {
-      const total = item.quantity * item.unit_price;
-      subtotal += total;
-      return {
-        ...item,
-        total,
-      };
+    input.items.forEach(item => {
+      subtotal += item.quantity * item.unit_price;
     });
 
-    const taxPercent = 0;
-    const taxAmount = (subtotal * taxPercent) / 100;
-    const discountPercent = 0;
-    const discountAmount = (subtotal * discountPercent) / 100;
-    const total = subtotal + taxAmount - discountAmount;
+    const taxAmount = subtotal * 0.18;
+    const total = subtotal + taxAmount;
 
-    // Update quotation
-    const { error: quotationError } = await supabase
-      .from('quotations')
-      .update({
-        valid_until: input.valid_until,
-        notes: input.notes,
-        status: input.status,
-        subtotal,
-        tax_amount: taxAmount,
-        discount_amount: discountAmount,
-        total,
-      })
-      .eq('id', id);
+    updateData.subtotal = subtotal;
+    updateData.tax_amount = taxAmount;
+    updateData.total = total;
 
-    if (quotationError) {
-      console.error('Error updating quotation:', quotationError);
-      return { success: false, error: 'Failed to update quotation' };
-    }
-
-    // Delete existing items
+    // Delete old items
     await supabase.from('quotation_items').delete().eq('quotation_id', id);
 
     // Insert new items
-    const quotationItems = items.map(item => ({
+    const itemsToInsert = input.items.map(item => ({
       quotation_id: id,
-      product_id: item.product_id || null,
+      product_id: item.product_id,
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unit_price,
-      total: item.total,
+      total: item.quantity * item.unit_price,
     }));
 
     const { error: itemsError } = await supabase
       .from('quotation_items')
-      .insert(quotationItems);
+      .insert(itemsToInsert);
 
     if (itemsError) {
       console.error('Error updating quotation items:', itemsError);
-      return { success: false, error: 'Failed to update quotation items' };
+      return { success: false, error: itemsError.message };
     }
-  } else {
-    // Update only quotation metadata
-    const { error: quotationError } = await supabase
-      .from('quotations')
-      .update({
-        valid_until: input.valid_until,
-        notes: input.notes,
-        status: input.status,
-      })
-      .eq('id', id);
+  }
 
-    if (quotationError) {
-      console.error('Error updating quotation:', quotationError);
-      return { success: false, error: 'Failed to update quotation' };
-    }
+  const { error } = await supabase
+    .from('quotations')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating quotation:', error);
+    return { success: false, error: error.message };
   }
 
   revalidatePath('/quotations');
@@ -263,11 +226,58 @@ export async function updateQuotation(
 }
 
 export async function deleteQuotation(id: string) {
-  await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
+  const user = await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
   const supabase = await createClient();
 
   const { error } = await supabase
     .from('quotations')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting quotation:', error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/quotations');
+  return { success: true };
+}
+
+export async function shareQuotationByEmail(quotationId: string, email: string) {
+  const user = await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
+  
+  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/v1/quotations/${quotationId}/share/email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    return { success: false, error: 'Failed to send email' };
+  }
+
+  return { success: true };
+}
+
+export async function shareQuotationByWhatsApp(quotationId: string, phone: string) {
+  const user = await requireRole(['SYSTEM_ADMIN', 'ADMIN', 'MANAGER']);
+  
+  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/v1/quotations/${quotationId}/share/whatsapp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ phone }),
+  });
+
+  if (!response.ok) {
+    return { success: false, error: 'Failed to send WhatsApp message' };
+  }
+
+  return { success: true };
+}
     .delete()
     .eq('id', id);
 

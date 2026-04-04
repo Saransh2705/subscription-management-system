@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import Image from "next/image";
 
 function StarDecoration({ className }: { className: string }) {
   return (
@@ -46,8 +47,8 @@ export function AuthBackground() {
 export function AuthBranding() {
   return (
     <div className="text-center mb-8 animate-fade-in-up">
-      <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4 ring-4 ring-primary/10">
-        <span className="text-primary-foreground font-bold text-2xl">S</span>
+      <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary shadow-lg shadow-primary/25 mb-4 ring-4 ring-primary/10 p-3">
+        <Image src="/html-logo.svg" alt="Sublytics" width={56} height={56} className="w-full h-full brightness-0 invert" />
       </div>
       <h1 className="text-3xl font-bold tracking-tight">Sublytics</h1>
       <p className="text-muted-foreground text-sm mt-1">Subscription management, simplified</p>

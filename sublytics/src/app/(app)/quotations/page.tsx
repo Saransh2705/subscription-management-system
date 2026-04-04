@@ -14,25 +14,9 @@ export default async function QuotationsPage() {
   // Fetch quotations
   const { data: quotations } = await getQuotations();
 
-  // Fetch customers
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name, email, phone")
-    .eq("is_active", true)
-    .order("name");
-
-  // Fetch plans
-  const { data: plans } = await supabase
-    .from("subscription_plans")
-    .select("id, name, price, currency")
-    .eq("is_active", true)
-    .order("name");
-
   return (
     <QuotationsClient
       initialQuotations={quotations || []}
-      customers={customers || []}
-      plans={plans || []}
     />
   );
 }

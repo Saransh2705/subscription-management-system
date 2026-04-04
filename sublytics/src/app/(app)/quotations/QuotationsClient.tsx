@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { FileText, Plus, Mail, MessageCircle, Edit, Trash2, Eye } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { FileText, Plus, Mail, MessageCircle, Edit, Trash2, Eye, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,19 +20,15 @@ import {
   shareQuotationByEmail,
   shareQuotationByWhatsApp,
 } from "@/lib/actions/quotations";
-import { getProducts } from "@/lib/actions/products";
-import type { Product } from "@/lib/types/product";
 
 interface QuotationsClientProps {
   initialQuotations: any[];
-  customers: any[];
-  plans: any[];
 }
 
-export default function QuotationsClient({ initialQuotations, customers, plans }: QuotationsClientProps) {
+export default function QuotationsClient({ initialQuotations }: QuotationsClientProps) {
   const [quotations, setQuotations] = useState(initialQuotations);
-  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -41,8 +37,7 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   
   const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null);
-  const [customerId, setCustomerId] = useState("");
-  const [planId, setPlanId] = useState("");
+  const [title, setTitle] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }]);
@@ -52,22 +47,11 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const loadProducts = async () => {
-    const result = await getProducts();
-    if (result.data) {
-      setProducts(result.data);
-    }
-  };
-
   const handleCreate = async () => {
-    if (!customerId || !validUntil || items.length === 0) {
+    if (!title || !validUntil || items.length === 0) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in title, valid until date, and at least one item",
         variant: "destructive",
       });
       return;
@@ -75,8 +59,7 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
 
     setLoading(true);
     const result = await createQuotation({
-      customer_id: customerId,
-      plan_id: planId,
+      title,
       valid_until: validUntil,
       notes,
       items: items.map(item => ({
@@ -109,6 +92,7 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
 
     setLoading(true);
     const result = await updateQuotation(selectedQuotation.id, {
+      title,
       valid_until: validUntil,
       notes,
       items: items.map(item => ({
@@ -217,6 +201,7 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
 
   const openEditDialog = (quotation: any) => {
     setSelectedQuotation(quotation);
+    setTitle(quotation.title);
     setValidUntil(quotation.valid_until);
     setNotes(quotation.notes || "");
     setItems(quotation.quotation_items.map((item: any) => ({
@@ -229,13 +214,13 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
 
   const openShareEmailDialog = (quotation: any) => {
     setSelectedQuotation(quotation);
-    setShareEmail(quotation.customer?.email || "");
+    setShareEmail("");
     setShareEmailDialogOpen(true);
   };
 
   const openShareWhatsAppDialog = (quotation: any) => {
     setSelectedQuotation(quotation);
-    setSharePhone(quotation.customer?.phone || "");
+    setSharePhone("");
     setShareWhatsAppDialogOpen(true);
   };
 
@@ -245,8 +230,7 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
   };
 
   const resetForm = () => {
-    setCustomerId("");
-    setPlanId("");
+    setTitle("");
     setValidUntil("");
     setNotes("");
     setItems([{ description: "", quantity: 1, unitPrice: 0 }]);
@@ -270,6 +254,29 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
   const calculateTotal = () => {
     return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   };
+
+  // Format date consistently for both server and client
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'numeric', 
+      day: 'numeric' 
+    });
+  };
+
+  // Filter quotations based on search query
+  const filteredQuotations = useMemo(() => {
+    if (!searchQuery) return quotations;
+    
+    const query = searchQuery.toLowerCase();
+    return quotations.filter((quotation: any) => 
+      quotation.quotation_number?.toLowerCase().includes(query) ||
+      quotation.title?.toLowerCase().includes(query) ||
+      quotation.status?.toLowerCase().includes(query) ||
+      quotation.total?.toString().includes(query)
+    );
+  }, [quotations, searchQuery]);
 
   return (
     <div className="page-container animate-fade-in">
@@ -297,14 +304,30 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>All Quotations</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>All Quotations</CardTitle>
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search quotations..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
+            {filteredQuotations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No quotations found matching "{searchQuery}"
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Quotation #</TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Title</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Valid Until</TableHead>
                   <TableHead>Status</TableHead>
@@ -312,17 +335,14 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {quotations.map((quotation) => (
+                {filteredQuotations.map((quotation) => (
                   <TableRow key={quotation.id}>
                     <TableCell className="font-mono">{quotation.quotation_number}</TableCell>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{quotation.customer?.name}</p>
-                        <p className="text-xs text-muted-foreground">{quotation.customer?.email}</p>
-                      </div>
+                      <p className="font-medium">{quotation.title}</p>
                     </TableCell>
                     <TableCell>{quotation.currency} {quotation.total.toFixed(2)}</TableCell>
-                    <TableCell>{new Date(quotation.valid_until).toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDate(quotation.valid_until)}</TableCell>
                     <TableCell>
                       <StatusBadge status={quotation.status} />
                     </TableCell>
@@ -370,6 +390,7 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
       )}
@@ -384,19 +405,12 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Customer *</Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Title *</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter quotation title..."
+                />
               </div>
               <div className="space-y-2">
                 <Label>Valid Until *</Label>
@@ -491,13 +505,23 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
             <DialogDescription>Update quotation details</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Valid Until *</Label>
-              <Input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Title *</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter quotation title..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Valid Until *</Label>
+                <Input
+                  type="date"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -659,13 +683,12 @@ export default function QuotationsClient({ initialQuotations, customers, plans }
                   <StatusBadge status={selectedQuotation.status} />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Customer</p>
-                  <p className="font-medium">{selectedQuotation.customer?.name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedQuotation.customer?.email}</p>
+                  <p className="text-sm text-muted-foreground">Title</p>
+                  <p className="font-medium">{selectedQuotation.title}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Valid Until</p>
-                  <p>{new Date(selectedQuotation.valid_until).toLocaleDateString()}</p>
+                  <p>{formatDate(selectedQuotation.valid_until)}</p>
                 </div>
               </div>
 
