@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import type { 
   Product, 
   ProductWithTiers,
@@ -19,33 +19,26 @@ const PRODUCTS_TAG = 'products';
 const PRODUCTS_WITH_TIERS_TAG = 'products-with-tiers';
 const PLAN_PRODUCTS_TAG = 'plan-products';
 
-export const getProducts = unstable_cache(
-  async () => {
-    try {
-      const supabase = await createClient();
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
+export async function getProducts() {
+  try {
+    const supabase = await createClient();
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching products:', error);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data as Product[] };
-    } catch (error) {
-      console.error('Error in getProducts:', error);
-      return { success: false, error: 'Failed to fetch products' };
+    if (error) {
+      console.error('Error fetching products:', error);
+      return { success: false, error: error.message };
     }
-  },
-  ['products-list'],
-  {
-    tags: [PRODUCTS_TAG],
-    revalidate: 3600, // Revalidate every hour OR when tag is invalidated
+
+    return { success: true, data: data as Product[] };
+  } catch (error) {
+    console.error('Error in getProducts:', error);
+    return { success: false, error: 'Failed to fetch products' };
   }
-);
+}
 
 export async function getProductById(id: string) {
   try {
@@ -69,39 +62,32 @@ export async function getProductById(id: string) {
   }
 }
 
-export const getProductsWithTiers = unstable_cache(
-  async () => {
-    try {
-      const supabase = await createClient();
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
+export async function getProductsWithTiers() {
+  try {
+    const supabase = await createClient();
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        tiers:subscription_plan_products(
           *,
-          tiers:subscription_plan_products(
-            *,
-            plan:subscription_plans(*)
-          )
-        `)
-        .order('created_at', { ascending: false });
+          plan:subscription_plans(*)
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching products with tiers:', error);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data as ProductWithTiers[] };
-    } catch (error) {
-      console.error('Error in getProductsWithTiers:', error);
-      return { success: false, error: 'Failed to fetch products with tiers' };
+    if (error) {
+      console.error('Error fetching products with tiers:', error);
+      return { success: false, error: error.message };
     }
-  },
-  ['products-with-tiers-list'],
-  {
-    tags: [PRODUCTS_WITH_TIERS_TAG, PRODUCTS_TAG, PLAN_PRODUCTS_TAG],
-    revalidate: 3600,
+
+    return { success: true, data: data as ProductWithTiers[] };
+  } catch (error) {
+    console.error('Error in getProductsWithTiers:', error);
+    return { success: false, error: 'Failed to fetch products with tiers' };
   }
-);
+}
 
 export async function createProduct(input: CreateProductInput) {
   try {

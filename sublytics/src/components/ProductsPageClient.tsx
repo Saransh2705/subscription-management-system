@@ -75,8 +75,14 @@ import {
   deleteProduct,
   toggleProductStatus,
 } from "@/lib/actions/products";
+import {
+  getAvailableCurrencies,
+  getSystemSettings,
+  convertToSystemCurrency,
+} from "@/lib/actions/settings";
 import type { Product } from "@/lib/types/product";
 import type { UserProfile } from "@/lib/types/auth";
+import type { AvailableCurrency, SystemSettings } from "@/lib/types/settings";
 
 interface ProductFormData {
   name: string;
@@ -171,12 +177,16 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
   const [sortBy, setSortBy] = useState<"name" | "price" | "date">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [view, setView] = useState<"grid" | "table">("grid");
+  const [availableCurrencies, setAvailableCurrencies] = useState<AvailableCurrency[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [convertedPrice, setConvertedPrice] = useState<number | null>(null);
   const { toast } = useToast();
 
   const hasEditAccess = canEditProducts(userRole);
 
   useEffect(() => {
     loadProducts();
+    loadCurrencies();
   }, []);
 
   const loadProducts = async () => {
@@ -188,6 +198,19 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
       toast({ title: "Error", description: result.error || "Failed to load products", variant: "destructive" });
     }
     setLoading(false);
+  };
+
+  const loadCurrencies = async () => {
+    try {
+      const [currencies, settings] = await Promise.all([
+        getAvailableCurrencies(),
+        getSystemSettings(),
+      ]);
+      setAvailableCurrencies(currencies);
+      setSystemSettings(settings);
+    } catch (error) {
+      console.error('Error loading currencies:', error);
+    }
   };
 
   const filteredProducts = useMemo(() => {
@@ -234,6 +257,36 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
     return { total, active, avgPrice, avgTax };
   }, [products]);
 
+  // Calculate converted price when currency or unit_price changes
+  useEffect(() => {
+    const calculateConversion = async () => {
+      if (!form.unit_price || !form.currency || !systemSettings) {
+        setConvertedPrice(null);
+        return;
+      }
+
+      const price = parseFloat(form.unit_price);
+      if (isNaN(price) || price <= 0) {
+        setConvertedPrice(null);
+        return;
+      }
+
+      try {
+        if (form.currency === systemSettings.system_currency_code) {
+          setConvertedPrice(price);
+        } else {
+          const converted = await convertToSystemCurrency(price, form.currency);
+          setConvertedPrice(converted);
+        }
+      } catch (error) {
+        console.error('Error converting currency:', error);
+        setConvertedPrice(null);
+      }
+    };
+
+    calculateConversion();
+  }, [form.unit_price, form.currency, systemSettings]);
+
   const handleOpen = (product?: Product) => {
     if (product) {
       setEditing(product);
@@ -243,11 +296,14 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
         sku: product.sku || "",
         unit_price: product.unit_price.toString(),
         tax_percent: product.tax_percent.toString(),
-        currency: product.currency,
+        currency: product.currency, // Product currency is already in system currency
       });
     } else {
       setEditing(null);
-      setForm(initialFormState);
+      setForm({
+        ...initialFormState,
+        currency: systemSettings?.system_currency_code || 'USD', // Default to system currency
+      });
     }
     setOpen(true);
   };
@@ -258,15 +314,28 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
       return;
     }
 
+    if (!systemSettings) {
+      toast({ title: "Error", description: "System settings not loaded", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     try {
+      const enteredPrice = parseFloat(form.unit_price);
+      
+      // Convert price to system currency
+      let priceInSystemCurrency = enteredPrice;
+      if (form.currency !== systemSettings.system_currency_code) {
+        priceInSystemCurrency = await convertToSystemCurrency(enteredPrice, form.currency);
+      }
+
       const productData = {
         name: form.name,
         description: form.description || undefined,
         sku: form.sku || undefined,
-        unit_price: parseFloat(form.unit_price),
+        unit_price: priceInSystemCurrency, // Store in system currency
         tax_percent: parseFloat(form.tax_percent) || 0,
-        currency: form.currency,
+        currency: systemSettings.system_currency_code, // Always store system currency
       };
 
       const result = editing
@@ -274,14 +343,19 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
         : await createProduct(productData);
 
       if (result.success) {
-        toast({ title: "Success", description: `Product ${editing ? "updated" : "created"} successfully` });
+        toast({ 
+          title: "Success", 
+          description: form.currency !== systemSettings.system_currency_code
+            ? `Product ${editing ? "updated" : "created"} successfully. Price converted from ${form.currency} ${enteredPrice.toFixed(2)} to ${systemSettings.system_currency_code} ${priceInSystemCurrency.toFixed(2)}`
+            : `Product ${editing ? "updated" : "created"} successfully`
+        });
         setOpen(false);
         loadProducts();
       } else {
         toast({ title: "Error", description: result.error || "Failed to save product", variant: "destructive" });
       }
-    } catch {
-      toast({ title: "Error", description: "An unexpected error occurred", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "An unexpected error occurred", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -804,27 +878,43 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
-                      <SelectItem value="INR">INR</SelectItem>
+                      {availableCurrencies.map((curr) => (
+                        <SelectItem key={curr.currency_code} value={curr.currency_code}>
+                          {curr.currency_code} - {curr.currency_name}
+                          {curr.is_system_currency && ' (System)'}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {systemSettings && (
+                    <p className="text-xs text-muted-foreground">
+                      Prices stored in {systemSettings.system_currency_code}
+                    </p>
+                  )}
                 </div>
               </div>
               {form.unit_price && (
                 <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Base Price</span>
+                    <span className="text-muted-foreground">Base Price ({form.currency})</span>
                     <span>{formatPrice(parseFloat(form.unit_price) || 0, form.currency)}</span>
                   </div>
+                  {systemSettings && form.currency !== systemSettings.system_currency_code && convertedPrice !== null && (
+                    <>
+                      <div className="flex justify-between text-primary">
+                        <span className="text-muted-foreground">→ Converted to {systemSettings.system_currency_code}</span>
+                        <span className="font-semibold">{formatPrice(convertedPrice, systemSettings.system_currency_code)}</span>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tax ({form.tax_percent || 0}%)</span>
                     <span>{formatPrice((parseFloat(form.unit_price) || 0) * (parseFloat(form.tax_percent) || 0) / 100, form.currency)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-semibold">
-                    <span>Final Price</span>
+                    <span>Final Price ({form.currency})</span>
                     <span className="text-primary">
                       {formatPrice(
                         (parseFloat(form.unit_price) || 0) * (1 + (parseFloat(form.tax_percent) || 0) / 100),
@@ -832,6 +922,17 @@ export default function ProductsPageClient({ userRole }: ProductsPageClientProps
                       )}
                     </span>
                   </div>
+                  {systemSettings && form.currency !== systemSettings.system_currency_code && convertedPrice !== null && (
+                    <div className="flex justify-between font-semibold text-primary pt-1">
+                      <span>Stored as ({systemSettings.system_currency_code})</span>
+                      <span>
+                        {formatPrice(
+                          convertedPrice * (1 + (parseFloat(form.tax_percent) || 0) / 100),
+                          systemSettings.system_currency_code
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
