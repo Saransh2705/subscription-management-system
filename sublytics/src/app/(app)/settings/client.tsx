@@ -73,6 +73,25 @@ export function SettingsPageClient({ initialSettings }: SettingsPageClientProps)
     }
   };
 
+  const handleSavePaymentSettings = async () => {
+    try {
+      setSaving(true);
+      await updateSystemSettings({
+        payment_success_url: settings.payment_success_url,
+        payment_failure_url: settings.payment_failure_url,
+        payment_gateway_enabled: settings.payment_gateway_enabled,
+        payment_gateway_name: settings.payment_gateway_name,
+        payment_gateway_api_key: settings.payment_gateway_api_key,
+        payment_gateway_secret_key: settings.payment_gateway_secret_key,
+      });
+      toast.success('Payment gateway settings saved successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -86,6 +105,7 @@ export function SettingsPageClient({ initialSettings }: SettingsPageClientProps)
         <TabsList className="bg-secondary/50">
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Template</TabsTrigger>
+          <TabsTrigger value="payment">Payment Gateway</TabsTrigger>
           <TabsTrigger value="api">API Keys</TabsTrigger>
         </TabsList>
 
@@ -240,6 +260,103 @@ export function SettingsPageClient({ initialSettings }: SettingsPageClientProps)
                 </div>
               </div>
               <Button onClick={handleSaveInvoiceSettings} disabled={saving}>
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payment">
+          <Card className="border border-border/50 shadow-sm">
+            <CardHeader>
+              <CardTitle>Payment Gateway</CardTitle>
+              <CardDescription>Configure payment callback URLs and gateway settings</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Payment Success URL</Label>
+                <Input
+                  value={settings.payment_success_url || ''}
+                  onChange={(e) => setSettings({ ...settings, payment_success_url: e.target.value })}
+                  placeholder="http://localhost:3000/payment/success"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Users will be redirected here after successful payment
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Payment Failure URL</Label>
+                <Input
+                  value={settings.payment_failure_url || ''}
+                  onChange={(e) => setSettings({ ...settings, payment_failure_url: e.target.value })}
+                  placeholder="http://localhost:3000/payment/failure"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Users will be redirected here after failed payment
+                </p>
+              </div>
+
+              <Separator className="my-6" />
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Payment Gateway Enabled</Label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.payment_gateway_enabled}
+                      onChange={(e) => setSettings({ ...settings, payment_gateway_enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Gateway Name</Label>
+                  <Input
+                    value={settings.payment_gateway_name || ''}
+                    onChange={(e) => setSettings({ ...settings, payment_gateway_name: e.target.value })}
+                    placeholder="e.g., Stripe, PayPal, Razorpay"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>API Key</Label>
+                  <Input
+                    value={settings.payment_gateway_api_key || ''}
+                    onChange={(e) => setSettings({ ...settings, payment_gateway_api_key: e.target.value })}
+                    placeholder="pk_live_..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Secret Key</Label>
+                  <Input
+                    type="password"
+                    value={settings.payment_gateway_secret_key || ''}
+                    onChange={(e) => setSettings({ ...settings, payment_gateway_secret_key: e.target.value })}
+                    placeholder="sk_live_..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Keep your secret key secure. Do not share it publicly.
+                  </p>
+                </div>
+              </div>
+
+              <Separator className="my-6" />
+
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Note:</strong> The payment system currently uses a simulation mode. 
+                  Configure your actual payment gateway credentials above and integrate the provider's SDK 
+                  in <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">/api/v1/subscriptions/payment/route.ts</code>
+                </p>
+              </div>
+
+              <Button onClick={handleSavePaymentSettings} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? 'Saving...' : 'Save Changes'}
               </Button>
