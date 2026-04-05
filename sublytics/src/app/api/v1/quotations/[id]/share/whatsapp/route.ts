@@ -80,6 +80,8 @@ export async function POST(
 
     const { phone } = await request.json();
     const quotationId = params.id;
+    const { searchParams } = new URL(request.url);
+    const requestedCurrency = searchParams.get('currency')?.toUpperCase();
 
     if (!phone) {
       return NextResponse.json(
@@ -144,8 +146,41 @@ export async function POST(
     // Fetch system settings
     const { data: settings } = await supabase
       .from("system_settings")
-      .select("company_name")
+      .select("company_name, system_currency_code")
       .single();
+
+    // Currency conversion logic
+    const systemCurrency = settings?.system_currency_code || 'USD';
+    const targetCurrency = requestedCurrency || systemCurrency;
+    const originalCurrency = quotation.currency;
+    let roeRate = 1.0;
+    let displayCurrency = originalCurrency;
+
+    // Apply currency conversion if requested currency differs from original
+    if (targetCurrency !== originalCurrency) {
+      const { data: roeData, error: roeError } = await supabase
+        .from('currency_roe')
+        .select('roe_rate')
+        .eq('currency_code', targetCurrency)
+        .eq('is_active', true)
+        .single();
+
+      if (roeData && !roeError) {
+        roeRate = parseFloat(roeData.roe_rate.toString());
+        displayCurrency = targetCurrency;
+
+        // Convert all amounts
+        quotation.subtotal = parseFloat(quotation.subtotal) * roeRate;
+        quotation.tax_amount = parseFloat(quotation.tax_amount) * roeRate;
+        quotation.discount_amount = parseFloat(quotation.discount_amount) * roeRate;
+        quotation.total = parseFloat(quotation.total) * roeRate;
+        quotation.quotation_items = quotation.quotation_items.map((item: any) => ({
+          ...item,
+          unit_price: parseFloat(item.unit_price) * roeRate,
+          total: parseFloat(item.total) * roeRate,
+        }));
+      }
+    }
 
     // Prepare WhatsApp message
     const itemsList = quotation.quotation_items
@@ -157,7 +192,7 @@ export async function POST(
           item.description !== item.product.name ? `   ${item.description}` : ''
         ].filter(Boolean).join('\n') : `📦 *${item.description}*`;
         
-        return `${productInfo}\n   ${item.quantity} × ${quotation.currency} ${item.unit_price.toFixed(2)} = *${quotation.currency} ${item.total.toFixed(2)}*`;
+        return `${productInfo}\n   ${item.quantity} × ${displayCurrency} ${item.unit_price.toFixed(2)} = *${displayCurrency} ${item.total.toFixed(2)}*`;
       })
       .join('\n\n');
 
@@ -178,8 +213,9 @@ ${itemsList}
 
 ━━━━━━━━━━━━━━━━━━
 
-💰 *Subtotal:* ${quotation.currency} ${quotation.subtotal.toFixed(2)}
-💵 *Total:* *${quotation.currency} ${quotation.total.toFixed(2)}*
+💰 *Subtotal:* ${displayCurrency} ${quotation.subtotal.toFixed(2)}
+💵 *Total:* *${displayCurrency} ${quotation.total.toFixed(2)}*
+${displayCurrency !== originalCurrency ? `\n_Converted from ${originalCurrency} at rate ${roeRate.toFixed(4)}_` : ''}
 
 ${quotation.notes ? `\n📌 *Note:* ${quotation.notes}\n` : ''}
 ━━━━━━━━━━━━━━━━━━

@@ -4,12 +4,12 @@ import { authenticateRequest } from '@/lib/v1/auth.helper';
 
 /**
  * @swagger
- * /api/v1/invoices/{id}:
+ * /api/v1/quotations/{id}:
  *   get:
- *     summary: Get an invoice by ID
- *     description: Retrieve a single invoice with all details including line items and optional currency conversion
+ *     summary: Get a quotation by ID
+ *     description: Retrieve a single quotation with all details including line items and optional currency conversion
  *     tags:
- *       - Invoices
+ *       - Quotations
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -19,7 +19,7 @@ import { authenticateRequest } from '@/lib/v1/auth.helper';
  *         schema:
  *           type: string
  *           format: uuid
- *         description: The invoice ID
+ *         description: The quotation ID
  *       - in: query
  *         name: currency
  *         schema:
@@ -28,7 +28,7 @@ import { authenticateRequest } from '@/lib/v1/auth.helper';
  *         description: Currency code for conversion (3-letter code). Defaults to system currency.
  *     responses:
  *       200:
- *         description: Invoice retrieved successfully
+ *         description: Quotation retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -38,7 +38,7 @@ import { authenticateRequest } from '@/lib/v1/auth.helper';
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   $ref: '#/components/schemas/Invoice'
+ *                   $ref: '#/components/schemas/Quotation'
  *                 conversion:
  *                   type: object
  *                   properties:
@@ -90,7 +90,7 @@ export async function GET(
           error: {
             code: 400,
             type: 'BadRequest',
-            message: 'Invalid invoice ID format',
+            message: 'Invalid quotation ID format',
           },
         },
         { status: 400 }
@@ -141,13 +141,13 @@ export async function GET(
     let roeRate = 1.0;
     let conversionInfo = null;
 
-    // Fetch invoice with customer details and line items
-    const { data: invoice, error: fetchError } = await supabase
-      .from('invoices')
+    // Fetch quotation with customer details and line items
+    const { data: quotation, error: fetchError } = await supabase
+      .from('quotations')
       .select(`
         *,
-        customer:customers!invoices_customer_id_fkey(id, name, email),
-        items:invoice_items(
+        customer:customers!quotations_customer_id_fkey(id, name, email, company),
+        items:quotation_items(
           id,
           product_id,
           description,
@@ -168,21 +168,21 @@ export async function GET(
             error: {
               code: 404,
               type: 'NotFound',
-              message: 'Invoice not found',
+              message: 'Quotation not found',
             },
           },
           { status: 404 }
         );
       }
 
-      console.error('Invoice fetch error:', fetchError);
+      console.error('Quotation fetch error:', fetchError);
       return NextResponse.json(
         {
           success: false,
           error: {
             code: 500,
             type: 'ServerError',
-            message: 'Failed to fetch invoice',
+            message: 'Failed to fetch quotation',
           },
         },
         { status: 500 }
@@ -190,7 +190,7 @@ export async function GET(
     }
 
     // Apply currency conversion if needed
-    if (targetCurrency !== invoice.currency) {
+    if (targetCurrency !== quotation.currency) {
       const { data: roeData, error: roeError } = await supabase
         .from('currency_roe')
         .select('currency_code, currency_name, roe_rate, is_active')
@@ -214,20 +214,20 @@ export async function GET(
 
       roeRate = parseFloat(roeData.roe_rate.toString());
       conversionInfo = {
-        from_currency: invoice.currency,
+        from_currency: quotation.currency,
         to_currency: targetCurrency,
         roe_rate: roeRate,
         currency_name: roeData.currency_name,
       };
 
       // Convert amounts
-      invoice.subtotal = parseFloat(invoice.subtotal) * roeRate;
-      invoice.tax_amount = parseFloat(invoice.tax_amount) * roeRate;
-      invoice.discount_amount = parseFloat(invoice.discount_amount) * roeRate;
-      invoice.total = parseFloat(invoice.total) * roeRate;
-      invoice.original_currency = invoice.currency;
-      invoice.currency = targetCurrency;
-      invoice.items = invoice.items.map((item: any) => ({
+      quotation.subtotal = parseFloat(quotation.subtotal) * roeRate;
+      quotation.tax_amount = parseFloat(quotation.tax_amount) * roeRate;
+      quotation.discount_amount = parseFloat(quotation.discount_amount) * roeRate;
+      quotation.total = parseFloat(quotation.total) * roeRate;
+      quotation.original_currency = quotation.currency;
+      quotation.currency = targetCurrency;
+      quotation.items = quotation.items.map((item: any) => ({
         ...item,
         unit_price: parseFloat(item.unit_price) * roeRate,
         total: parseFloat(item.total) * roeRate,
@@ -236,11 +236,11 @@ export async function GET(
       }));
     } else {
       // Parse amounts to numbers
-      invoice.subtotal = parseFloat(invoice.subtotal);
-      invoice.tax_amount = parseFloat(invoice.tax_amount);
-      invoice.discount_amount = parseFloat(invoice.discount_amount);
-      invoice.total = parseFloat(invoice.total);
-      invoice.items = invoice.items.map((item: any) => ({
+      quotation.subtotal = parseFloat(quotation.subtotal);
+      quotation.tax_amount = parseFloat(quotation.tax_amount);
+      quotation.discount_amount = parseFloat(quotation.discount_amount);
+      quotation.total = parseFloat(quotation.total);
+      quotation.items = quotation.items.map((item: any) => ({
         ...item,
         unit_price: parseFloat(item.unit_price),
         total: parseFloat(item.total),
@@ -249,7 +249,7 @@ export async function GET(
 
     const response: any = {
       success: true,
-      data: invoice,
+      data: quotation,
     };
 
     if (conversionInfo) {
@@ -258,7 +258,7 @@ export async function GET(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Invoice fetch error:', error);
+    console.error('Quotation fetch error:', error);
     return NextResponse.json(
       {
         success: false,
