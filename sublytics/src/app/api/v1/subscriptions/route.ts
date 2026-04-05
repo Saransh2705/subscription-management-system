@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateRequest } from "@/lib/v1/auth.helper";
 
 /**
  * @swagger
@@ -29,6 +30,11 @@ import { createClient } from "@/lib/supabase/server";
  *                 type: string
  *                 format: uuid
  *                 description: Subscription plan UUID
+ *               billing_cycle:
+ *                 type: string
+ *                 enum: [monthly, quarterly, semi_annual, annual]
+ *                 description: Billing cycle for the subscription
+ *                 default: monthly
  *               start_immediately:
  *                 type: boolean
  *                 description: Start subscription immediately or after trial
@@ -67,26 +73,42 @@ import { createClient } from "@/lib/supabase/server";
  *       500:
  *         description: Internal server error
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const auth = await authenticateRequest(request);
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (auth.error) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: {
+            code: 401,
+            type: 'Unauthorized',
+            message: auth.error,
+          },
+        },
         { status: 401 }
       );
     }
 
+    const supabase = createAdminClient();
+
     const body = await request.json();
-    const { customer_id, plan_id, start_immediately = false } = body;
+    const { customer_id, plan_id, start_immediately = false, billing_cycle = 'monthly' } = body;
 
     // Validate required fields
     if (!customer_id || !plan_id) {
       return NextResponse.json(
         { success: false, error: "customer_id and plan_id are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate billing_cycle
+    const validCycles = ['monthly', 'quarterly', 'semi_annual', 'annual'];
+    if (!validCycles.includes(billing_cycle)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid billing_cycle. Must be one of: monthly, quarterly, semi_annual, annual" },
         { status: 400 }
       );
     }
@@ -111,9 +133,6 @@ export async function POST(request: Request) {
       .select(`
         id,
         name,
-        price,
-        currency,
-        billing_cycle,
         trial_days,
         discount_percentage,
         is_active
@@ -158,9 +177,17 @@ export async function POST(request: Request) {
       ? new Date(startDate.getTime() + plan.trial_days * 24 * 60 * 60 * 1000)
       : null;
 
+    // Get system currency
+    const { data: systemSettings } = await supabase
+      .from("system_settings")
+      .select("system_currency_code")
+      .single();
+    
+    const systemCurrency = systemSettings?.system_currency_code || 'USD';
+
     // Calculate next billing date based on billing cycle
     const nextBillingDate = new Date(trialEndDate || startDate);
-    switch (plan.billing_cycle) {
+    switch (billing_cycle) {
       case 'monthly':
         nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
         break;
@@ -194,8 +221,8 @@ export async function POST(request: Request) {
         payment_session_id: paymentSessionId,
         payment_status: 'pending',
         payment_amount: finalPrice,
-        payment_currency: plan.currency,
-        created_by: user.id,
+        payment_currency: systemCurrency,
+        created_by: null, // API-created subscriptions have null created_by
       })
       .select()
       .single();
@@ -222,7 +249,7 @@ export async function POST(request: Request) {
     paymentUrl.searchParams.set('session_id', paymentSessionId);
     paymentUrl.searchParams.set('subscription_id', subscription.id);
     paymentUrl.searchParams.set('amount', finalPrice.toFixed(2));
-    paymentUrl.searchParams.set('currency', plan.currency);
+    paymentUrl.searchParams.set('currency', systemCurrency);
     paymentUrl.searchParams.set('success_url', successUrl);
     paymentUrl.searchParams.set('failure_url', failureUrl);
     paymentUrl.searchParams.set('customer_email', customer.email);
@@ -236,7 +263,7 @@ export async function POST(request: Request) {
         payment_url: paymentUrl.toString(),
         payment_session_id: paymentSessionId,
         amount: finalPrice,
-        currency: plan.currency,
+        currency: systemCurrency,
         status: initialStatus,
         trial_days: plan.trial_days,
         next_billing_date: nextBillingDate.toISOString().split('T')[0],
@@ -285,18 +312,25 @@ export async function POST(request: Request) {
  *       500:
  *         description: Internal server error
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const auth = await authenticateRequest(request);
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (auth.error) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: {
+            code: 401,
+            type: 'Unauthorized',
+            message: auth.error,
+          },
+        },
         { status: 401 }
       );
     }
+
+    const supabase = createAdminClient();
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customer_id');
@@ -315,10 +349,8 @@ export async function GET(request: Request) {
         plan:subscription_plans (
           id,
           name,
-          price,
-          currency,
-          billing_cycle,
-          trial_days
+          trial_days,
+          discount_percentage
         )
       `)
       .order("created_at", { ascending: false });

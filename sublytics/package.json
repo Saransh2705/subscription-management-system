@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "bun run src/lib/auth/seed-script.ts",
+    "show-api-keys": "bun run scripts/show-api-credentials.ts",
     "postbuild": "bun run seed"
   },
   "dependencies": {

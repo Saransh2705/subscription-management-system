@@ -1,14 +1,21 @@
 #!/usr/bin/env bun
-import { seedAdminUser } from './seed-admin';
+import { seedAdminUser, seedCompanyApiKeys } from './seed-admin';
 
 async function runSeed() {
-  console.log('🌱 Starting admin user seeding...\n');
+  console.log('🌱 Starting database seeding...\n');
   
-  const result = await seedAdminUser();
+  // Seed admin user
+  const adminResult = await seedAdminUser();
+  if (!adminResult.success) {
+    console.error(`\n❌ Admin seeding failed: ${adminResult.message}`);
+  }
   
-  if (!result.success) {
-    console.error(`\n❌ Seeding failed: ${result.message}`);
-    process.exit(1);
+  console.log(''); // Empty line for spacing
+  
+  // Seed company API keys
+  const apiKeysResult = await seedCompanyApiKeys();
+  if (!apiKeysResult.success) {
+    console.error(`\n❌ API keys seeding failed: ${apiKeysResult.message}`);
   }
   
   console.log('\n✅ Seeding completed successfully!');

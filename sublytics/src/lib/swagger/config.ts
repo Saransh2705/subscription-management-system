@@ -325,4 +325,12 @@ const options: swaggerJsdoc.Options = {
   apis: ['./src/app/api/v1/**/*.ts'], // Path to API route files
 };
 
-export const swaggerSpec = swaggerJsdoc(options);
+// Cache the swagger spec to avoid regenerating on every request
+let cachedSpec: any = null;
+
+export const swaggerSpec = (() => {
+  if (!cachedSpec) {
+    cachedSpec = swaggerJsdoc(options);
+  }
+  return cachedSpec;
+})();

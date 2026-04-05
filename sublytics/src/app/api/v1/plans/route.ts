@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateRequest } from "@/lib/v1/auth.helper";
 
 /**
  * @swagger
@@ -73,18 +74,25 @@ import { createClient } from "@/lib/supabase/server";
  *       500:
  *         description: Internal server error
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const auth = await authenticateRequest(request);
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (auth.error) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: {
+            code: 401,
+            type: 'Unauthorized',
+            message: auth.error,
+          },
+        },
         { status: 401 }
       );
     }
+
+    const supabase = createAdminClient();
 
     // Fetch all plans with their discount percentage
     const { data: plans, error: plansError } = await supabase
@@ -93,9 +101,6 @@ export async function GET(request: Request) {
         id,
         name,
         description,
-        price,
-        currency,
-        billing_cycle,
         trial_days,
         features,
         discount_percentage,
@@ -103,7 +108,7 @@ export async function GET(request: Request) {
         created_at,
         updated_at
       `)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false});
 
     if (plansError) {
       console.error("Error fetching plans:", plansError);
@@ -160,9 +165,7 @@ export async function GET(request: Request) {
           id: plan.id,
           name: plan.name,
           description: plan.description || '',
-          billing_cycle: plan.billing_cycle,
           trial_days: plan.trial_days,
-          currency: plan.currency,
           is_active: plan.is_active,
           features: plan.features || [],
           pricing: {
