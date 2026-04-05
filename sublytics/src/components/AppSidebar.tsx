@@ -16,6 +16,7 @@ import {
   ChevronsUpDown,
   Shield,
   DollarSign,
+  CalendarClock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -50,6 +51,7 @@ const mainNav = [
   { title: "Customers", url: "/customers", icon: Users },
   { title: "Subscribers", url: "/subscriptions", icon: RefreshCw },
   { title: "Invoices", url: "/invoices", icon: FileText },
+  { title: "Billing Cycles", url: "/billing-cycles", icon: CalendarClock },
   { title: "Quotations", url: "/quotations", icon: FileCheck },
 ];
 
